@@ -1,0 +1,1320 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Barcode Label Designer</title>
+    <style>
+        :root {
+            --bg: #eef2f7;
+            --panel: #ffffff;
+            --text: #0f172a;
+            --muted: #64748b;
+            --line: #dbe3ec;
+            --primary: #2563eb;
+            --danger: #dc2626;
+            --success: #16a34a;
+            --label-width-mm: 50;
+            --label-height-mm: 30;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+            color: var(--text);
+            background: var(--bg);
+        }
+        button, input, select { font: inherit; }
+        .app-shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+        .topbar {
+            background: #0f172a;
+            color: #fff;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .title-wrap h1 { margin: 0; font-size: 1.5rem; }
+        .title-wrap p { margin: 6px 0 0; color: #cbd5e1; font-size: 1rem; }
+        .top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn {
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 12px 17px;
+            cursor: pointer;
+            font-weight: 700;
+            background: #fff;
+            color: var(--text);
+        }
+        .btn:hover { filter: brightness(.97); }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-dark { background: #1e293b; color: #fff; border-color: #334155; }
+        .btn-outline { background: transparent; color: #fff; border-color: #475569; }
+        .workspace {
+            display: grid;
+            grid-template-columns: 360px minmax(0, 1fr) 350px;
+            gap: 20px;
+            padding: 20px;
+            align-items: start;
+        }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(15,23,42,.06);
+            overflow: hidden;
+        }
+        .panel-header { padding: 19px 20px; border-bottom: 1px solid var(--line); font-weight: 800; font-size: 1.08rem; }
+        .panel-body { padding: 20px; }
+        .field { margin-bottom: 14px; }
+        .field:last-child { margin-bottom: 0; }
+        .field label { display: block; font-size: .9rem; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
+        .control {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 12px 13px;
+            background: #fff;
+            font-size: 1rem;
+        }
+        .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .tool-btn {
+            padding: 13px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #f8fafc;
+            cursor: pointer;
+            font-weight: 700;
+            text-align: center;
+        }
+        .tool-btn:hover { border-color: #93c5fd; background: #eff6ff; }
+        .canvas-panel { min-height: calc(100vh - 110px); display: grid; place-items: center; padding: 32px; overflow: auto; }
+        .canvas-wrap { position: relative; padding: 140px; display: grid; place-items: start; transition: width .15s ease, height .15s ease; }
+        .label-canvas {
+            position: relative;
+            width: calc(var(--label-width-mm) * 3.7795275591px);
+            height: calc(var(--label-height-mm) * 3.7795275591px);
+            background: white;
+            border: 1px solid #94a3b8;
+            box-shadow: 0 18px 40px rgba(15,23,42,.18);
+            overflow: visible;
+            user-select: none;
+        }
+        .grid-on {
+            background-image:
+                linear-gradient(to right, rgba(37,99,235,.12) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(37,99,235,.12) 1px, transparent 1px);
+            background-size: 10px 10px;
+        }
+        .designer-element {
+            position: absolute;
+            min-width: 24px;
+            min-height: 18px;
+            border: 1px dashed transparent;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px;
+            overflow: hidden;
+            touch-action: none;
+        }
+        .designer-element.selected { border-color: var(--primary); background: rgba(37,99,235,.06); }
+        .designer-element .element-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .designer-element svg { width: 100%; height: 100%; display: block; overflow: visible; }
+        .resize-handle {
+            position: absolute;
+            right: 2px;
+            bottom: 2px;
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            border-radius: 3px 0 0 0;
+            cursor: nwse-resize;
+            display: none;
+            z-index: 5;
+            box-shadow: 0 0 0 2px #fff;
+        }
+        .designer-element.selected .resize-handle { display: block; }
+        .muted { color: var(--muted); font-size: .82rem; line-height: 1.45; }
+        .status { margin-top: 10px; font-size: .9rem; color: var(--muted); min-height: 18px; }
+        .barcode-health { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: .86rem; line-height: 1.45; display: none; }
+        .barcode-health.ok { display: block; background: #ecfdf5; color: #166534; border: 1px solid #bbf7d0; }
+        .barcode-health.warn { display: block; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+        .barcode-health.bad { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .element-list { display: grid; gap: 7px; max-height: 260px; overflow: auto; }
+        .element-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 9px 10px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #f8fafc;
+            cursor: pointer;
+        }
+        .element-row.active { border-color: var(--primary); background: #eff6ff; }
+        .element-row-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mini-danger { border: 0; background: transparent; color: var(--danger); font-weight: 900; cursor: pointer; }
+        .divider { height: 1px; background: var(--line); margin: 16px 0; }
+        .keyboard-hint { padding: 10px; border-radius: 10px; background: #f8fafc; font-size: .9rem; color: var(--muted); }
+        .template-source { display: none; }
+
+        @media (max-width: 1100px) {
+            .workspace { grid-template-columns: 280px minmax(0,1fr); }
+            .properties-panel { grid-column: 1 / -1; }
+        }
+        @media (max-width: 760px) {
+            .workspace { grid-template-columns: 1fr; }
+            .canvas-panel { min-height: auto; padding: 15px; }
+            .canvas-wrap { padding: 10px; }
+        }
+
+        #printArea { display: none; }
+        @media print {
+            @page { margin: 0; size: var(--label-width-mm)mm var(--label-height-mm)mm; }
+            html, body {
+                width: var(--label-width-mm)mm !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+                overflow: visible !important;
+            }
+            body.printing > *:not(#printArea) { display: none !important; }
+            body.printing #printArea {
+                display: block !important;
+                position: static !important;
+                width: var(--label-width-mm)mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+            .print-label {
+                position: relative !important;
+                display: block !important;
+                width: var(--label-width-mm)mm !important;
+                height: var(--label-height-mm)mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+                background: #fff !important;
+                break-after: page;
+                page-break-after: always;
+                transform: none !important;
+            }
+            .print-label:last-child { break-after: auto; page-break-after: auto; }
+            .print-label .designer-element {
+                display: flex !important;
+                position: absolute !important;
+                border: 0 !important;
+                background: transparent !important;
+                overflow: visible !important;
+            }
+            .print-label .element-content { display: flex !important; visibility: visible !important; }
+            .print-label svg, .print-label svg * { visibility: visible !important; }
+            .print-label .resize-handle { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <header class="topbar">
+        <div class="title-wrap">
+            <h1>Barcode Label Designer</h1>
+            <p id="itemSummary">Standalone · no Django required</p>
+        </div>
+        <div class="top-actions">
+            <button class="btn btn-outline" type="button" id="backButton">Back</button>
+            <button class="btn btn-dark" type="button" id="resetButton">Reset Layout</button>
+            <button class="btn btn-success" type="button" id="saveButton">Save Layout</button>
+            <button class="btn btn-primary" type="button" id="printButton">Print</button>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <aside class="panel tools-panel">
+            <div class="panel-header">Label setup</div>
+            <div class="panel-body">
+                <div class="field">
+                    <label for="itemNameInput">Item name</label>
+                    <input class="control" id="itemNameInput" type="text" value="Sample Item">
+                </div>
+                <div class="row-2">
+                    <div class="field">
+                        <label for="itemPriceInput">Price</label>
+                        <input class="control" id="itemPriceInput" type="text" value="1.00">
+                    </div>
+                    <div class="field">
+                        <label for="itemBarcodeInput">Barcode</label>
+                        <input class="control" id="itemBarcodeInput" type="text" value="1234567890128">
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+                <div class="row-2">
+                    <div class="field">
+                        <label for="labelWidth">Width (mm)</label>
+                        <input class="control" id="labelWidth" type="number" min="20" max="150" step="1" value="38">
+                    </div>
+                    <div class="field">
+                        <label for="labelHeight">Height (mm)</label>
+                        <input class="control" id="labelHeight" type="number" min="15" max="100" step="0.1" value="25.4">
+                    </div>
+                </div>
+                <div class="muted" style="margin:-4px 0 12px">Preset for 38 × 25.4 mm thermal labels. Barcode width is automatic for reliable scanning.</div>
+                <div class="row-2">
+                    <div class="field">
+                        <label for="copyCount">Copies</label>
+                        <input class="control" id="copyCount" type="number" min="1" max="200" value="1">
+                    </div>
+                    <div class="field">
+                        <label for="gridToggle">Grid</label>
+                        <select class="control" id="gridToggle">
+                            <option value="on">Show</option>
+                            <option value="off">Hide</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+                <div class="field"><label>Add elements</label></div>
+                <div class="tool-grid">
+                    <button class="tool-btn" type="button" data-add="name">Item name</button>
+                    <button class="tool-btn" type="button" data-add="price">Price</button>
+                    <button class="tool-btn" type="button" data-add="barcode-image">Barcode image</button>
+                    <button class="tool-btn" type="button" data-add="barcode-number">Barcode number</button>
+                    <button class="tool-btn" type="button" data-add="custom-text">Custom text</button>
+                </div>
+
+                <div class="divider"></div>
+                <div class="field"><label>Elements on label</label></div>
+                <div id="elementList" class="element-list"></div>
+                <div class="status" id="saveStatus"></div>
+            </div>
+        </aside>
+
+        <section class="panel canvas-panel">
+            <div class="canvas-wrap" id="canvasWrap">
+                <div class="label-canvas grid-on" id="labelCanvas" aria-label="Label design canvas"></div>
+            </div>
+        </section>
+
+        <aside class="panel properties-panel">
+            <div class="panel-header">Selected element</div>
+            <div class="panel-body">
+                <div id="noSelection" class="muted">Select an element on the label to edit it.</div>
+                <div id="properties" hidden>
+                    <div class="field">
+                        <label for="elementText" id="elementTextLabel">Content / value</label>
+                        <input class="control" id="elementText" type="text">
+                        <div class="muted" id="elementTextHelp" style="margin-top:6px"></div>
+                        <div id="barcodeHealth" class="barcode-health" aria-live="polite"></div>
+                    </div>
+                    <div class="row-2">
+                        <div class="field">
+                            <label for="fontSize">Font size</label>
+                            <input class="control" id="fontSize" type="number" min="6" max="200" value="14">
+                        </div>
+                        <div class="field">
+                            <label for="fontWeight">Weight</label>
+                            <select class="control" id="fontWeight">
+                                <option value="400">Normal</option>
+                                <option value="600">Semi-bold</option>
+                                <option value="700">Bold</option>
+                                <option value="800">Extra bold</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="textAlign">Alignment</label>
+                        <select class="control" id="textAlign">
+                            <option value="left">Left</option>
+                            <option value="center">Center</option>
+                            <option value="right">Right</option>
+                        </select>
+                    </div>
+                    <div class="row-2">
+                        <div class="field"><label for="posX">X</label><input class="control" id="posX" type="number" step="1"></div>
+                        <div class="field"><label for="posY">Y</label><input class="control" id="posY" type="number" step="1"></div>
+                    </div>
+                    <div class="row-2">
+                        <div class="field"><label for="sizeW">Width</label><input class="control" id="sizeW" type="number" min="20" step="1"></div>
+                        <div class="field"><label for="sizeH">Height</label><input class="control" id="sizeH" type="number" min="18" step="1"></div>
+                    </div>
+                    <button class="btn btn-danger" style="width:100%" type="button" id="deleteButton">Delete element</button>
+                </div>
+                <div class="divider"></div>
+                <div class="keyboard-hint">
+                    Tip: drag elements to move them, drag the blue corner to resize, and use arrow keys for precise movement.
+                </div>
+            </div>
+        </aside>
+    </main>
+</div>
+
+<div id="printArea" aria-hidden="true"></div>
+
+
+
+<script id="designer-data" type="application/json">{
+    "itemName": "Sample Item",
+    "price": "1.00",
+    "barcode": "1234567890128"
+}</script>
+<script>
+(() => {
+    "use strict";
+
+    const STORAGE_KEY = "coralbay_barcode_label_layout_v4";
+    const PX_PER_MM = 3.7795275591;
+    let previewScale = 1;
+    const data = JSON.parse(document.getElementById("designer-data").textContent);
+    const canvas = document.getElementById("labelCanvas");
+    const canvasWrap = document.getElementById("canvasWrap");
+    const elementList = document.getElementById("elementList");
+    const saveStatus = document.getElementById("saveStatus");
+    const properties = document.getElementById("properties");
+    const noSelection = document.getElementById("noSelection");
+    const printArea = document.getElementById("printArea");
+    const elementTextLabel = document.getElementById("elementTextLabel");
+    const elementTextHelp = document.getElementById("elementTextHelp");
+    const barcodeHealth = document.getElementById("barcodeHealth");
+    const itemSummary = document.getElementById("itemSummary");
+    const itemInputs = {
+        name: document.getElementById("itemNameInput"),
+        price: document.getElementById("itemPriceInput"),
+        barcode: document.getElementById("itemBarcodeInput")
+    };
+
+    const controls = {
+        labelWidth: document.getElementById("labelWidth"),
+        labelHeight: document.getElementById("labelHeight"),
+        copyCount: document.getElementById("copyCount"),
+        gridToggle: document.getElementById("gridToggle"),
+        text: document.getElementById("elementText"),
+        fontSize: document.getElementById("fontSize"),
+        fontWeight: document.getElementById("fontWeight"),
+        textAlign: document.getElementById("textAlign"),
+        x: document.getElementById("posX"),
+        y: document.getElementById("posY"),
+        w: document.getElementById("sizeW"),
+        h: document.getElementById("sizeH")
+    };
+
+    let selectedId = null;
+    let layout = null;
+    let activePointer = null;
+
+    const makeId = () => "el_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    function defaultLayout() {
+        return {
+            version: 4,
+            widthMm: 38,
+            heightMm: 25.4,
+            grid: true,
+            elements: [
+                { id: makeId(), type: "name", x: 4, y: 3, w: 136, h: 20, fontSize: 11, fontWeight: "700", textAlign: "center" },
+                { id: makeId(), type: "barcode-image", x: 8, y: 25, w: 110, h: 37 },
+                { id: makeId(), type: "barcode-number", x: 8, y: 64, w: 128, h: 16, fontSize: 8, fontWeight: "600", textAlign: "center" },
+                { id: makeId(), type: "price", x: 45, y: 80, w: 50, h: 16, fontSize: 11, fontWeight: "800", textAlign: "center" }
+            ]
+        };
+    }
+
+    function typeLabel(type) {
+        return {
+            name: "Item name",
+            price: "Price",
+            "barcode-image": "Barcode image",
+            "barcode-number": "Barcode number",
+            "custom-text": "Custom text"
+        }[type] || type;
+    }
+
+    function elementText(el) {
+        if (el.value !== undefined) return String(el.value);
+        if (el.type === "name") return data.itemName;
+        if (el.type === "price") return el.prefix !== undefined ? el.prefix + data.price : data.price;
+        if (el.type === "barcode-number") return data.barcode;
+        if (el.type === "barcode-image") return data.barcode;
+        if (el.type === "custom-text") return el.text || "Custom text";
+        return "";
+    }
+
+    // Code 128-B generator. It runs locally, so custom barcode values work offline.
+    const CODE128_PATTERNS = [
+        "212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212",
+        "112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131",
+        "311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321",
+        "112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121",
+        "313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+        "314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114",
+        "122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212",
+        "124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113",
+        "114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"
+    ];
+
+    function escapeSvgText(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    function code128Structure(rawValue) {
+        // Preserve the user's value exactly. Never pad with zeroes or change digits.
+        let value = String(rawValue ?? "").replace(/[^\x20-\x7E]/g, "?");
+        if (!value) value = " ";
+
+        let codes = [];
+        let codeSet = "B";
+        if (/^\d+$/.test(value) && value.length >= 4) {
+            if (value.length % 2 === 0) {
+                codes = [105]; // Start C
+                codeSet = "C";
+                for (let i = 0; i < value.length; i += 2) codes.push(Number(value.slice(i, i + 2)));
+            } else {
+                codes = [104, value.charCodeAt(0) - 32, 99]; // Start B, first digit, switch to C
+                codeSet = "B→C";
+                for (let i = 1; i < value.length; i += 2) codes.push(Number(value.slice(i, i + 2)));
+            }
+        } else {
+            codes = [104];
+            for (const ch of value) codes.push(ch.charCodeAt(0) - 32);
+        }
+
+        let checksum = codes[0];
+        for (let i = 1; i < codes.length; i++) checksum += codes[i] * i;
+        codes.push(checksum % 103, 106);
+        const modules = [];
+        for (const code of codes) {
+            const pattern = CODE128_PATTERNS[code];
+            for (const digit of pattern) modules.push(Number(digit));
+        }
+        const quietModules = 10;
+        const barModules = modules.reduce((a, b) => a + b, 0);
+        const totalModules = quietModules * 2 + barModules;
+        return { value, codes, modules, quietModules, barModules, totalModules, codeSet };
+    }
+
+    function makeCode128Svg(rawValue) {
+        const info = code128Structure(rawValue);
+        let x = info.quietModules;
+        let bars = "";
+        let black = true;
+        for (const width of info.modules) {
+            if (black) bars += `<rect x="${x}" y="0" width="${width}" height="100"/>`;
+            x += width;
+            black = !black;
+        }
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${info.totalModules} 100" preserveAspectRatio="none" role="img" aria-label="Barcode ${escapeSvgText(info.value)}"><rect width="100%" height="100%" fill="white"/><g fill="black">${bars}</g></svg>`;
+    }
+
+    const EAN_L = [
+        "0001101","0011001","0010011","0111101","0100011",
+        "0110001","0101111","0111011","0110111","0001011"
+    ];
+    const EAN_G = [
+        "0100111","0110011","0011011","0100001","0011101",
+        "0111001","0000101","0010001","0001001","0010111"
+    ];
+    const EAN_R = [
+        "1110010","1100110","1101100","1000010","1011100",
+        "1001110","1010000","1000100","1001000","1110100"
+    ];
+    const EAN_PARITY = ["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG","LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"];
+
+    function ean13CheckDigit(first12) {
+        if (!/^\d{12}$/.test(first12)) return null;
+        let sum = 0;
+        for (let i = 0; i < 12; i++) {
+            const n = Number(first12[i]);
+            sum += n * (i % 2 === 0 ? 1 : 3);
+        }
+        return String((10 - (sum % 10)) % 10);
+    }
+
+    function normalizeEan13(rawValue) {
+        const raw = String(rawValue ?? "").trim();
+        // Only exact, valid 13-digit input becomes EAN-13. Never add digits or zeroes.
+        if (!/^\d{13}$/.test(raw)) return null;
+        if (ean13CheckDigit(raw.slice(0, 12)) !== raw[12]) return null;
+        return raw;
+    }
+
+    function makeEan13Svg(rawValue) {
+        const value = normalizeEan13(rawValue);
+        if (!value) return null;
+        const parity = EAN_PARITY[Number(value[0])];
+        let bits = "101";
+        for (let i = 1; i <= 6; i++) {
+            const digit = Number(value[i]);
+            bits += parity[i - 1] === "L" ? EAN_L[digit] : EAN_G[digit];
+        }
+        bits += "01010";
+        for (let i = 7; i <= 12; i++) bits += EAN_R[Number(value[i])];
+        bits += "101";
+
+        const leftQuiet = 11;
+        const rightQuiet = 7;
+        const totalModules = leftQuiet + 95 + rightQuiet;
+        let bars = "";
+        for (let i = 0; i < bits.length; i++) {
+            if (bits[i] !== "1") continue;
+            const isGuard = i < 3 || (i >= 45 && i < 50) || i >= 92;
+            const y = 0;
+            const h = isGuard ? 100 : 92;
+            bars += `<rect x="${leftQuiet + i}" y="${y}" width="1" height="${h}"/>`;
+        }
+        return {
+            value,
+            totalModules,
+            svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalModules} 100" preserveAspectRatio="none" role="img" aria-label="EAN-13 ${value}"><rect width="100%" height="100%" fill="white"/><g fill="black">${bars}</g></svg>`
+        };
+    }
+
+    const PRINTER_DPI = 203;
+    const DOT_MM = 25.4 / PRINTER_DPI;
+
+    function barcodeInfo(rawValue) {
+        const raw = String(rawValue ?? "").trim();
+        const ean = makeEan13Svg(raw);
+        if (ean) {
+            const xMm = DOT_MM * 2;
+            return {
+                symbology: "EAN-13",
+                encodedValue: raw,
+                totalModules: ean.totalModules,
+                barModules: 95,
+                quietModules: 18,
+                fixedXmm: xMm,
+                minHeightMm: 9.5,
+                recommendedHeightMm: 10.5,
+                svg: ean.svg,
+                note: `Exact 13-digit EAN-13 · ${xMm.toFixed(3)} mm/module (2 dots @ ${PRINTER_DPI} dpi)`
+            };
+        }
+
+        const code = code128Structure(raw);
+        const maxTotalMm = Math.max(20, (layout?.widthMm || 38) - 1.0);
+        const x3 = DOT_MM * 3;
+        const x2 = DOT_MM * 2;
+        const xMm = code.totalModules * x3 <= maxTotalMm ? x3 : x2;
+        const invalidEan = /^\d{13}$/.test(raw)
+            ? "13 digits entered, but the EAN-13 check digit is invalid; the exact value is encoded as Code 128."
+            : "Exact value encoded as Code 128.";
+        return {
+            symbology: `Code 128 (${code.codeSet})`,
+            encodedValue: code.value,
+            totalModules: code.totalModules,
+            barModules: code.barModules,
+            quietModules: code.quietModules * 2,
+            fixedXmm: xMm,
+            minHeightMm: 9.5,
+            recommendedHeightMm: 9.7,
+            svg: makeCode128Svg(raw),
+            note: `${invalidEan} ${xMm.toFixed(3)} mm/module (${Math.round(xMm / DOT_MM)} dots @ ${PRINTER_DPI} dpi).`
+        };
+    }
+
+    function barcodeSizing(el) {
+        const info = barcodeInfo(elementText(el));
+        const widthMm = Math.max(0, Number(el.w) || 0) / PX_PER_MM;
+        const heightMm = Math.max(0, Number(el.h) || 0) / PX_PER_MM;
+        const requiredWidthMm = info.totalModules * info.fixedXmm;
+        const xMm = widthMm / Math.max(1, info.totalModules);
+        const safeWidth = Math.abs(widthMm - requiredWidthMm) <= 0.12;
+        const safeHeight = heightMm >= info.minHeightMm;
+        return { ...info, widthMm, heightMm, xMm, minWidthMm: requiredWidthMm, targetWidthMm: requiredWidthMm, safeWidth, safeHeight, safe: safeWidth && safeHeight };
+    }
+
+    function safeBarcodeWidthPx(el) {
+        const info = barcodeInfo(elementText(el));
+        return info.totalModules * info.fixedXmm * PX_PER_MM;
+    }
+
+    function autoSizeBarcode(el) {
+        if (!el || el.type !== "barcode-image") return;
+        const info = barcodeInfo(elementText(el));
+        el.w = info.totalModules * info.fixedXmm * PX_PER_MM;
+        el.h = Math.max(info.recommendedHeightMm * PX_PER_MM, 18);
+        const canvasWidth = Math.max(1, layout.widthMm * PX_PER_MM);
+        const canvasHeight = Math.max(1, layout.heightMm * PX_PER_MM);
+        el.x = Math.max(0, (canvasWidth - el.w) / 2);
+        el.y = clamp(Number(el.y) || 0, 0, Math.max(0, canvasHeight - el.h));
+    }
+
+    function loadLayout() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            if (saved && saved.version === 4 && Array.isArray(saved.elements)) return saved;
+        } catch (error) {
+            console.warn("Could not load barcode layout", error);
+        }
+        return defaultLayout();
+    }
+
+    function fitElementsToCanvas({ persist = false } = {}) {
+        if (!layout || !Array.isArray(layout.elements) || !layout.elements.length) return false;
+
+        const canvasWidth = Math.max(1, layout.widthMm * PX_PER_MM);
+        const canvasHeight = Math.max(1, layout.heightMm * PX_PER_MM);
+        const margin = Math.min(8, Math.max(2, Math.min(canvasWidth, canvasHeight) * 0.04));
+        const usableWidth = Math.max(20, canvasWidth - margin * 2);
+        const usableHeight = Math.max(18, canvasHeight - margin * 2);
+
+        let changed = false;
+        let maxRight = 0;
+        let maxBottom = 0;
+
+        layout.elements.forEach(el => {
+            el.x = Number(el.x) || 0;
+            el.y = Number(el.y) || 0;
+            el.w = Math.max(20, Number(el.w) || 20);
+            el.h = Math.max(18, Number(el.h) || 18);
+            maxRight = Math.max(maxRight, el.x + el.w);
+            maxBottom = Math.max(maxBottom, el.y + el.h);
+        });
+
+        // If the saved design is larger than the current label, shrink the
+        // entire design proportionally so every element and resize handle fits.
+        const contentWidth = Math.max(1, maxRight);
+        const contentHeight = Math.max(1, maxBottom);
+        const scale = Math.min(1, usableWidth / contentWidth, usableHeight / contentHeight);
+
+        if (scale < 0.999) {
+            layout.elements.forEach(el => {
+                el.x = margin + el.x * scale;
+                el.y = margin + el.y * scale;
+                el.w = Math.max(20, el.w * scale);
+                el.h = Math.max(18, el.h * scale);
+                if (el.type !== "barcode-image") {
+                    el.fontSize = clamp((Number(el.fontSize) || 14) * scale, 6, 72);
+                }
+            });
+            changed = true;
+        }
+
+        // Clamp each element independently. This also handles layouts where one
+        // element alone is too large or has been dragged outside the label.
+        layout.elements.forEach(el => {
+            const old = { x: el.x, y: el.y, w: el.w, h: el.h, fontSize: el.fontSize };
+
+            el.w = clamp(el.w, 20, usableWidth);
+            el.h = clamp(el.h, 18, usableHeight);
+            el.x = clamp(el.x, margin, Math.max(margin, canvasWidth - margin - el.w));
+            el.y = clamp(el.y, margin, Math.max(margin, canvasHeight - margin - el.h));
+
+            if (el.type !== "barcode-image") {
+                const maxFontForHeight = Math.max(6, el.h * 0.72);
+                el.fontSize = clamp(Number(el.fontSize) || 14, 6, Math.min(72, maxFontForHeight));
+            }
+
+            if (old.x !== el.x || old.y !== el.y || old.w !== el.w || old.h !== el.h || old.fontSize !== el.fontSize) {
+                changed = true;
+            }
+        });
+
+        if (changed && persist) persistLayout(false);
+        return changed;
+    }
+
+    function persistLayout(showMessage = true) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
+        localStorage.setItem(STORAGE_KEY + "_item", JSON.stringify(data));
+        if (showMessage) {
+            saveStatus.textContent = "Layout saved in this browser.";
+            clearTimeout(persistLayout.timer);
+            persistLayout.timer = setTimeout(() => saveStatus.textContent = "", 2200);
+        }
+    }
+
+    function calculatePreviewScale() {
+        const panel = document.querySelector(".canvas-panel");
+        const baseWidth = Math.max(1, layout.widthMm * PX_PER_MM);
+        const baseHeight = Math.max(1, layout.heightMm * PX_PER_MM);
+
+        // Keep comfortable space around the label and always fit it inside
+        // the visible editor area, regardless of its physical print size.
+        const horizontalPadding = window.innerWidth <= 760 ? 28 : 96;
+        const verticalPadding = window.innerWidth <= 760 ? 28 : 96;
+        const availableWidth = Math.max(140, panel.clientWidth - horizontalPadding);
+        const availableHeight = Math.max(180, panel.clientHeight - verticalPadding);
+
+        const fitScale = Math.min(availableWidth / baseWidth, availableHeight / baseHeight);
+        return clamp(fitScale, 0.2, 4);
+    }
+
+    function applyCanvasSize() {
+        document.documentElement.style.setProperty("--label-width-mm", layout.widthMm);
+        document.documentElement.style.setProperty("--label-height-mm", layout.heightMm);
+
+        const baseWidth = layout.widthMm * PX_PER_MM;
+        const baseHeight = layout.heightMm * PX_PER_MM;
+        previewScale = calculatePreviewScale();
+
+        canvas.style.width = baseWidth + "px";
+        canvas.style.height = baseHeight + "px";
+        canvas.style.transform = `scale(${previewScale})`;
+        canvas.style.transformOrigin = "top left";
+
+        const wrapPadding = window.innerWidth <= 760 ? 80 : 280;
+        canvasWrap.style.width = (baseWidth * previewScale + wrapPadding) + "px";
+        canvasWrap.style.height = (baseHeight * previewScale + wrapPadding) + "px";
+
+        canvas.classList.toggle("grid-on", layout.grid !== false);
+        controls.labelWidth.value = layout.widthMm;
+        controls.labelHeight.value = layout.heightMm;
+        controls.gridToggle.value = layout.grid === false ? "off" : "on";
+    }
+
+    function createContent(el) {
+        const content = document.createElement("div");
+        content.className = "element-content";
+        if (el.type === "barcode-image") {
+            content.innerHTML = barcodeInfo(elementText(el)).svg;
+        } else {
+            content.textContent = elementText(el);
+            content.style.fontSize = (el.fontSize || 14) + "px";
+            content.style.fontWeight = el.fontWeight || "700";
+            content.style.textAlign = el.textAlign || "center";
+            content.style.justifyContent = el.textAlign === "left" ? "flex-start" : el.textAlign === "right" ? "flex-end" : "center";
+            content.style.whiteSpace = "normal";
+            content.style.lineHeight = "1.05";
+        }
+        return content;
+    }
+
+    function render() {
+        applyCanvasSize();
+        canvas.innerHTML = "";
+        layout.elements.forEach(el => {
+            const node = document.createElement("div");
+            node.className = "designer-element" + (el.id === selectedId ? " selected" : "");
+            node.dataset.id = el.id;
+            node.style.left = el.x + "px";
+            node.style.top = el.y + "px";
+            node.style.width = el.w + "px";
+            node.style.height = el.h + "px";
+            node.appendChild(createContent(el));
+
+            const handle = document.createElement("div");
+            handle.className = "resize-handle";
+            handle.dataset.resize = "1";
+            node.appendChild(handle);
+            canvas.appendChild(node);
+        });
+        renderElementList();
+        updateProperties();
+    }
+
+    function renderElementList() {
+        elementList.innerHTML = "";
+        layout.elements.forEach((el, index) => {
+            const row = document.createElement("div");
+            row.className = "element-row" + (el.id === selectedId ? " active" : "");
+            row.dataset.id = el.id;
+            row.innerHTML = `<span class="element-row-name">${index + 1}. ${typeLabel(el.type)}</span><button class="mini-danger" type="button" title="Delete">×</button>`;
+            row.addEventListener("click", event => {
+                if (event.target.closest("button")) {
+                    deleteElement(el.id);
+                    return;
+                }
+                selectElement(el.id);
+            });
+            elementList.appendChild(row);
+        });
+    }
+
+    function selectedElement() {
+        return layout.elements.find(el => el.id === selectedId) || null;
+    }
+
+    function selectElement(id) {
+        selectedId = id;
+        render();
+    }
+
+    function updateProperties() {
+        const el = selectedElement();
+        noSelection.hidden = !!el;
+        properties.hidden = !el;
+        if (!el) return;
+        const isText = el.type !== "barcode-image";
+        controls.text.disabled = false;
+        controls.text.value = elementText(el);
+        elementTextLabel.textContent = el.type === "barcode-image" ? "Barcode value" : "Content / value";
+        elementTextHelp.textContent = el.type === "barcode-image"
+            ? "Exactly 13 valid EAN digits use EAN-13. Every other value uses Code 128. The entered value is never padded or changed."
+            : "Edit to override the item value for this label element.";
+        barcodeHealth.className = "barcode-health";
+        barcodeHealth.textContent = "";
+        if (el.type === "barcode-image") {
+            const b = barcodeSizing(el);
+            const widthText = `${b.widthMm.toFixed(1)} mm wide · ${b.heightMm.toFixed(1)} mm high · module ${b.xMm.toFixed(3)} mm`;
+            if (b.safe) {
+                barcodeHealth.classList.add("ok");
+                barcodeHealth.textContent = `✓ ${b.symbology} · ${widthText}. ${b.note}`;
+            } else {
+                barcodeHealth.classList.add(b.safeWidth ? "warn" : "bad");
+                const problems = [];
+                if (!b.safeWidth) problems.push(`too narrow; minimum ≈ ${b.minWidthMm.toFixed(1)} mm`);
+                if (!b.safeHeight) problems.push(`too short; use at least ${b.minHeightMm.toFixed(0)} mm height`);
+                barcodeHealth.textContent = `⚠ ${b.symbology} · ${widthText}. ${problems.join("; ")}. ${b.note}`;
+            }
+        }
+        controls.fontSize.disabled = !isText;
+        controls.fontWeight.disabled = !isText;
+        controls.textAlign.disabled = !isText;
+        controls.fontSize.value = el.fontSize || 14;
+        controls.fontWeight.value = el.fontWeight || "700";
+        controls.textAlign.value = el.textAlign || "center";
+        controls.x.value = Math.round(el.x);
+        controls.y.value = Math.round(el.y);
+        controls.w.value = Math.round(el.w);
+        controls.h.value = Math.round(el.h);
+        controls.w.disabled = el.type === "barcode-image";
+    }
+
+    function addElement(type) {
+        const offset = layout.elements.length * 4;
+        const el = {
+            id: makeId(), type,
+            x: clamp(12 + offset, 0, canvas.clientWidth - 80),
+            y: clamp(12 + offset, 0, canvas.clientHeight - 30),
+            w: type === "barcode-image" ? 150 : 120,
+            h: type === "barcode-image" ? 55 : 28,
+            fontSize: type === "price" ? 16 : 13,
+            fontWeight: type === "price" ? "800" : "700",
+            textAlign: "center"
+        };
+        if (type === "custom-text") el.value = "Custom text";
+        layout.elements.push(el);
+        if (type === "barcode-image") autoSizeBarcode(el);
+        selectedId = el.id;
+        persistLayout(false);
+        render();
+    }
+
+    function deleteElement(id = selectedId) {
+        if (!id) return;
+        layout.elements = layout.elements.filter(el => el.id !== id);
+        if (selectedId === id) selectedId = null;
+        persistLayout(false);
+        render();
+    }
+
+    canvas.addEventListener("pointerdown", event => {
+        const node = event.target.closest(".designer-element");
+        if (!node) {
+            selectedId = null;
+            render();
+            return;
+        }
+        event.preventDefault();
+        const id = node.dataset.id;
+        selectedId = id;
+        const el = selectedElement();
+        const resizing = !!event.target.closest("[data-resize]");
+        activePointer = {
+            id,
+            mode: resizing ? "resize" : "move",
+            startX: event.clientX,
+            startY: event.clientY,
+            originalX: el.x,
+            originalY: el.y,
+            originalW: el.w,
+            originalH: el.h,
+            originalFontSize: Number(el.fontSize) || 14
+        };
+        node.setPointerCapture(event.pointerId);
+        render();
+    });
+
+    canvas.addEventListener("pointermove", event => {
+        if (!activePointer) return;
+        const el = layout.elements.find(x => x.id === activePointer.id);
+        if (!el) return;
+        const dx = (event.clientX - activePointer.startX) / previewScale;
+        const dy = (event.clientY - activePointer.startY) / previewScale;
+        if (activePointer.mode === "move") {
+            el.x = activePointer.originalX + dx;
+            el.y = activePointer.originalY + dy;
+        } else {
+            let newW = Math.max(20, activePointer.originalW + dx);
+            let newH = Math.max(18, activePointer.originalH + dy);
+            if (el.type === "barcode-image") {
+                const safeW = safeBarcodeWidthPx(el);
+                const maxW = Math.max(20, canvas.clientWidth - Math.max(0, el.x));
+                newW = Math.min(maxW, Math.max(Math.min(safeW, maxW), newW));
+                const minBarcodeHeightPx = 10 * PX_PER_MM;
+                const maxH = Math.max(18, canvas.clientHeight - Math.max(0, el.y));
+                newH = Math.min(maxH, Math.max(Math.min(minBarcodeHeightPx, maxH), newH));
+            }
+            const scaleX = newW / Math.max(1, activePointer.originalW);
+            const scaleY = newH / Math.max(1, activePointer.originalH);
+            const contentScale = Math.min(scaleX, scaleY);
+            el.w = newW;
+            el.h = newH;
+            if (el.type !== "barcode-image") {
+                el.fontSize = clamp(activePointer.originalFontSize * contentScale, 6, 200);
+            }
+        }
+        const node = canvas.querySelector(`[data-id="${el.id}"]`);
+        if (node) {
+            node.style.left = el.x + "px";
+            node.style.top = el.y + "px";
+            node.style.width = el.w + "px";
+            node.style.height = el.h + "px";
+            const content = node.querySelector(".element-content");
+            if (content) {
+                if (el.type === "barcode-image") content.innerHTML = barcodeInfo(elementText(el)).svg;
+                else content.style.fontSize = (el.fontSize || 14) + "px";
+            }
+        }
+        updateProperties();
+    });
+
+    function finishPointer() {
+        if (!activePointer) return;
+        activePointer = null;
+        persistLayout(false);
+        renderElementList();
+    }
+    canvas.addEventListener("pointerup", finishPointer);
+    canvas.addEventListener("pointercancel", finishPointer);
+
+    document.addEventListener("keydown", event => {
+        const el = selectedElement();
+        if (!el) return;
+        if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+        const step = event.shiftKey ? 10 : 1;
+        if (event.key === "Delete") { deleteElement(); return; }
+        if (event.key === "ArrowLeft") el.x -= step;
+        else if (event.key === "ArrowRight") el.x += step;
+        else if (event.key === "ArrowUp") el.y -= step;
+        else if (event.key === "ArrowDown") el.y += step;
+        else return;
+        event.preventDefault();
+        persistLayout(false);
+        render();
+    });
+
+    document.querySelectorAll("[data-add]").forEach(button => {
+        button.addEventListener("click", () => addElement(button.dataset.add));
+    });
+
+    controls.labelWidth.addEventListener("change", () => {
+        layout.widthMm = clamp(Number(controls.labelWidth.value) || 38, 20, 150);
+        persistLayout(false);
+        render();
+    });
+    controls.labelHeight.addEventListener("change", () => {
+        layout.heightMm = clamp(Number(controls.labelHeight.value) || 25.4, 15, 100);
+        persistLayout(false);
+        render();
+    });
+    controls.gridToggle.addEventListener("change", () => {
+        layout.grid = controls.gridToggle.value === "on";
+        persistLayout(false); render();
+    });
+
+    function bindProperty(control, property, parser = value => value) {
+        control.addEventListener("input", () => {
+            const el = selectedElement();
+            if (!el) return;
+            el[property] = parser(control.value);
+            persistLayout(false);
+            render();
+        });
+    }
+    controls.text.addEventListener("input", () => {
+        const el = selectedElement();
+        if (!el) return;
+        el.value = controls.text.value;
+        if (el.type === "barcode-image") autoSizeBarcode(el);
+        persistLayout(false);
+        render();
+    });
+    bindProperty(controls.fontSize, "fontSize", v => clamp(Number(v) || 14, 6, 200));
+    bindProperty(controls.fontWeight, "fontWeight");
+    bindProperty(controls.textAlign, "textAlign");
+    bindProperty(controls.x, "x", v => Number(v) || 0);
+    bindProperty(controls.y, "y", v => Number(v) || 0);
+    controls.w.addEventListener("input", () => {
+        const el = selectedElement();
+        if (!el) return;
+        let requested = Math.max(20, Number(controls.w.value) || 20);
+        if (el.type === "barcode-image") {
+            const safeW = safeBarcodeWidthPx(el);
+            const maxW = Math.max(20, canvas.clientWidth - Math.max(0, el.x));
+            requested = Math.min(maxW, Math.max(Math.min(safeW, maxW), requested));
+        }
+        el.w = requested;
+        persistLayout(false);
+        render();
+    });
+    controls.h.addEventListener("input", () => {
+        const el = selectedElement();
+        if (!el) return;
+        let requested = Math.max(18, Number(controls.h.value) || 18);
+        if (el.type === "barcode-image") {
+            const minH = 10 * PX_PER_MM;
+            const maxH = Math.max(18, canvas.clientHeight - Math.max(0, el.y));
+            requested = Math.min(maxH, Math.max(Math.min(minH, maxH), requested));
+        }
+        el.h = requested;
+        persistLayout(false);
+        render();
+    });
+
+    document.getElementById("deleteButton").addEventListener("click", () => deleteElement());
+    document.getElementById("saveButton").addEventListener("click", () => persistLayout(true));
+    document.getElementById("resetButton").addEventListener("click", () => {
+        if (!confirm("Reset the saved barcode label layout?")) return;
+        layout = defaultLayout();
+        selectedId = null;
+        persistLayout(true);
+        render();
+    });
+    document.getElementById("backButton").addEventListener("click", () => history.back());
+
+    function escapePrintHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function buildPrintableElement(el) {
+        const leftMm = el.x / PX_PER_MM;
+        const topMm = el.y / PX_PER_MM;
+        const widthMm = el.w / PX_PER_MM;
+        const heightMm = el.h / PX_PER_MM;
+
+        let contentHtml;
+        if (el.type === "barcode-image") {
+            contentHtml = barcodeInfo(elementText(el)).svg;
+        } else {
+            const align = el.textAlign || "center";
+            const justify = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
+            contentHtml = `
+                <div class="print-content print-text"
+                     style="font-size:${Number(el.fontSize) || 14}px;
+                            font-weight:${escapePrintHtml(el.fontWeight || "700")};
+                            text-align:${escapePrintHtml(align)};
+                            justify-content:${justify};">
+                    ${escapePrintHtml(elementText(el))}
+                </div>`;
+        }
+
+        return `
+            <div class="print-element"
+                 style="left:${leftMm}mm;top:${topMm}mm;width:${widthMm}mm;height:${heightMm}mm;">
+                ${el.type === "barcode-image" ? `<div class="print-content print-barcode">${contentHtml}</div>` : contentHtml}
+            </div>`;
+    }
+
+    function buildPrintDocument(copies) {
+        const labels = Array.from({ length: copies }, () => `
+            <section class="print-label">
+                ${layout.elements.map(buildPrintableElement).join("")}
+            </section>`).join("");
+
+        return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Barcode labels</title>
+<style>
+    * { box-sizing: border-box; }
+    @page { size: ${layout.widthMm}mm ${layout.heightMm}mm; margin: 0; }
+    html, body { margin: 0; padding: 0; background: #fff; }
+    body { width: ${layout.widthMm}mm; }
+    .print-label {
+        position: relative;
+        width: ${layout.widthMm}mm;
+        height: ${layout.heightMm}mm;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #fff;
+        break-after: page;
+        page-break-after: always;
+    }
+    .print-label:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+    .print-element {
+        position: absolute;
+        display: flex;
+        margin: 0;
+        padding: 0;
+        overflow: visible;
+    }
+    .print-content {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        overflow: visible;
+        margin: 0;
+        padding: 0;
+    }
+    .print-text {
+        line-height: 1.05;
+        white-space: normal;
+        overflow: visible;
+        overflow-wrap: anywhere;
+    }
+    .print-barcode svg {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+        overflow: visible;
+    }
+    .print-barcode svg rect,
+    .print-barcode svg path {
+        shape-rendering: crispEdges;
+    }
+    @media print {
+        html, body { width: ${layout.widthMm}mm; height: auto; overflow: visible; }
+    }
+</style>
+</head>
+<body>${labels}</body>
+</html>`;
+    }
+
+    function printLabels() {
+        persistLayout(false);
+        const unsafe = layout.elements
+            .filter(el => el.type === "barcode-image")
+            .map(el => ({ el, sizing: barcodeSizing(el) }))
+            .filter(x => !x.sizing.safe);
+        if (unsafe.length) {
+            const detail = unsafe.map((x, i) => {
+                const b = x.sizing;
+                return `Barcode ${i + 1}: ${b.symbology}, ${b.widthMm.toFixed(1)} × ${b.heightMm.toFixed(1)} mm; required width ${b.minWidthMm.toFixed(1)} mm and minimum height ${b.minHeightMm.toFixed(1)} mm.`;
+            }).join("\n");
+            alert(`Printing blocked to protect scan reliability.\n\n${detail}\n\nThe program will automatically re-size the barcode. If this message remains, reset the layout.`);
+            return;
+        }
+        const copies = clamp(Number(controls.copyCount.value) || 1, 1, 200);
+        const iframe = document.createElement("iframe");
+        iframe.setAttribute("aria-hidden", "true");
+        iframe.style.position = "fixed";
+        iframe.style.right = "0";
+        iframe.style.bottom = "0";
+        iframe.style.width = "1px";
+        iframe.style.height = "1px";
+        iframe.style.border = "0";
+        iframe.style.opacity = "0";
+        iframe.style.pointerEvents = "none";
+        document.body.appendChild(iframe);
+
+        const printWindow = iframe.contentWindow;
+        const printDocument = iframe.contentDocument || printWindow.document;
+        printDocument.open();
+        printDocument.write(buildPrintDocument(copies));
+        printDocument.close();
+
+        const cleanup = () => {
+            window.setTimeout(() => iframe.remove(), 500);
+        };
+
+        iframe.onload = () => {
+            window.setTimeout(() => {
+                try {
+                    printWindow.focus();
+                    printWindow.print();
+                } finally {
+                    cleanup();
+                }
+            }, 150);
+        };
+
+        // Some browsers do not fire iframe.onload after document.write().
+        window.setTimeout(() => {
+            if (!document.body.contains(iframe)) return;
+            try {
+                printWindow.focus();
+                printWindow.print();
+            } finally {
+                cleanup();
+            }
+        }, 500);
+    }
+
+    document.getElementById("printButton").addEventListener("click", printLabels);
+
+    let resizeFrame = null;
+    const resizePreview = () => {
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => {
+            if (!layout) return;
+            applyCanvasSize();
+        });
+    };
+
+    function refreshItemSummary() {
+        itemSummary.textContent = `${data.itemName || "Untitled item"} · ${data.barcode || "No barcode"}`;
+    }
+
+    itemInputs.name.addEventListener("input", () => {
+        data.itemName = itemInputs.name.value;
+        refreshItemSummary();
+        render();
+    });
+    itemInputs.price.addEventListener("input", () => {
+        data.price = itemInputs.price.value;
+        render();
+    });
+    itemInputs.barcode.addEventListener("input", () => {
+        data.barcode = itemInputs.barcode.value;
+        refreshItemSummary();
+        render();
+    });
+    refreshItemSummary();
+
+    window.addEventListener("resize", resizePreview);
+    if ("ResizeObserver" in window) {
+        const previewObserver = new ResizeObserver(resizePreview);
+        previewObserver.observe(document.querySelector(".canvas-panel"));
+    }
+
+    try {
+        const savedItem = JSON.parse(localStorage.getItem(STORAGE_KEY + "_item"));
+        if (savedItem && typeof savedItem === "object") {
+            data.itemName = savedItem.itemName ?? data.itemName;
+            data.price = savedItem.price ?? data.price;
+            data.barcode = savedItem.barcode ?? data.barcode;
+        }
+    } catch (error) {
+        console.warn("Could not load saved item data", error);
+    }
+    itemInputs.name.value = data.itemName;
+    itemInputs.price.value = data.price;
+    itemInputs.barcode.value = data.barcode;
+    refreshItemSummary();
+
+    layout = loadLayout();
+    layout.elements.forEach(el => { if (el.type === "barcode-image") autoSizeBarcode(el); });
+    render();
+    requestAnimationFrame(resizePreview);
+})();
+</script>
+</body>
+</html>
