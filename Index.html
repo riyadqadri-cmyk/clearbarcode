@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearBarcode</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 24px; background: #f5f6f8; color: #1c1e21;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #16181c; color: #e8eaed; }
+    .card { background: #202329; border-color: #32363d; }
+    .btn { background: #2a2e35; border-color: #3a3f47; color: #e8eaed; }
+    .btn:hover { background: #333842; }
+  }
+  .card {
+    background: #fff; border: 1px solid #e2e4e8; border-radius: 14px;
+    padding: 24px; width: 100%; max-width: 420px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  p.sub { margin: 0 0 20px; font-size: 13px; opacity: .65; }
+  .btn {
+    display: block; width: 100%; padding: 13px 16px; margin-bottom: 10px;
+    font: inherit; font-size: 15px; text-align: center; cursor: pointer;
+    background: #f0f1f3; border: 1px solid #d8dade; border-radius: 10px;
+    color: inherit; text-decoration: none;
+  }
+  .btn:hover { background: #e7e9ec; }
+  .btn:last-child { margin-bottom: 0; }
+  .btn small { display: block; font-size: 12px; opacity: .6; margin-top: 2px; }
+  .status { font-size: 12px; opacity: .6; min-height: 16px; text-align: center; }
+  .hidden { display: none !important; }
+  #frame { width: 100%; height: 100vh; border: 0; }
+  body.viewing { padding: 0; display: block; }
+</style>
+</head>
+<body>
+
+<div id="menu" class="card">
+  <h1>ClearBarcode</h1>
+  <p class="sub">Pick a version to open.</p>
+
+  <button class="btn" data-file="BarcodeSIMPLE.html">
+    Simple
+    <small>Easy mode — fixed layout, EN / AR</small>
+  </button>
+
+  <button class="btn" data-file="BarcodePRO.html">
+    Pro
+    <small>Designer — drag &amp; resize labels</small>
+  </button>
+
+  <div class="status" id="status"></div>
+</div>
+
+<iframe id="frame" class="hidden" title="ClearBarcode"></iframe>
+
+<script>
+(function () {
+  var menu   = document.getElementById('menu');
+  var frame  = document.getElementById('frame');
+  var status = document.getElementById('status');
+
+  function open(file) {
+    status.textContent = 'Loading ' + file + '…';
+    frame.classList.remove('hidden');
+    menu.classList.add('hidden');
+    document.body.classList.add('viewing');
+    frame.src = file;
+  }
+
+  document.querySelectorAll('.btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { open(btn.dataset.file); });
+  });
+
+  // If opened from file:// the iframe still works for local siblings in most
+  // browsers, but some block it. Detect and offer a manual file picker.
+  var isFile = location.protocol === 'file:';
+  if (isFile) {
+    status.textContent = 'Local file — if a version fails to open, use the picker below.';
+    var picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = '.html';
+    picker.style.marginTop = '10px';
+    picker.addEventListener('change', function () {
+      if (!picker.files[0]) return;
+      var url = URL.createObjectURL(picker.files[0]);
+      frame.classList.remove('hidden');
+      menu.classList.add('hidden');
+      document.body.classList.add('viewing');
+      frame.src = url;
+    });
+    menu.appendChild(picker);
+  }
+})();
+</script>
+</body>
+</html>
