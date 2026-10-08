@@ -1,6 +1,6 @@
 # Simple Barcode Label Printer
 
-A lightweight, browser-based barcode label generator designed for fast, reliable printing on thermal labels. This project is intentionally simple: it runs as a standalone HTML app with no backend or setup process required.
+A lightweight, browser-based barcode label generator designed for fast, reliable printing on thermal labels. This project is intentionally simple: it runs as a standalone HTML app with no backend or server required, which makes it easy to run on local machines and older hardware.
 
 This repository contains two versions:
 
@@ -99,3 +99,7 @@ The major objective of this project is reliability, especially for older or non-
 - It is optimized for practical reliability rather than advanced enterprise features
 
 This was made with the help of ChatGPT.
+
+---
+
+License: This project is licensed under the [MIT License](LICENSE). See the [LICENSE](LICENSE) file for full terms and conditions.
