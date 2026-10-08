@@ -1,4 +1,4 @@
-# Simple Barcode Label Printer
+# clearbarcode
 
 A lightweight, browser-based barcode label generator designed for fast, reliable printing on thermal labels. This project is intentionally simple: it runs as a standalone HTML app with no backend or server required, which makes it easy to run on local machines and older hardware.
 
