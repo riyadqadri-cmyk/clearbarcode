@@ -2,6 +2,8 @@
 
 A lightweight, browser-based barcode label generator designed for fast, reliable printing on thermal labels. This project is intentionally simple: it runs as a standalone HTML app with no backend or server required.
 
+**[Try the live demo →](https://riyadqadri-cmyk.github.io/clearbarcode/)**
+
 This repository contains two versions:
 
 - BarcodeSIMPLE.html — a simplified version built for everyday use, with English and Arabic labels
