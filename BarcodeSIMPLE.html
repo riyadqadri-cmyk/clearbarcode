@@ -179,7 +179,8 @@ function getBarcodePlan(value,labelWidthMm){
  if(is13Digit&&hasValidChecksum){
    const ean=makeEan13Svg(raw);
    if(ean){
-     const xMm=DOT_MM*2,required=ean.totalModules*xMm;
+     const xMm=DOT_MM*1.5;
+     const required=ean.totalModules*xMm;
      return{symbology:"EAN-13",value:raw,totalModules:ean.totalModules,xMm,widthMm:required,minHeightMm:9.5,heightMm:9.7,svg:ean.svg,fits:required<=maxWidth+0.01};
    }
  }
