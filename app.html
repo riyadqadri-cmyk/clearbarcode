@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="app-version" content="1.0.1">
+<meta name="app-version" content="1.1.0">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Barcode Label Designer</title>
 <style>
@@ -32,7 +32,6 @@
   .btn-success { background: var(--success); color: #fff; }
   .btn-danger { background: var(--danger); color: #fff; }
   .btn-dark { background: #1e293b; color: #fff; border-color: #334155; }
-  .btn-outline { background: transparent; color: #fff; border-color: #475569; }
   .workspace { display: grid; grid-template-columns: 360px minmax(0, 1fr) 350px; gap: 20px; padding: 20px; align-items: start; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,.06); overflow: hidden; }
   .panel-header { padding: 19px 20px; border-bottom: 1px solid var(--line); font-weight: 800; font-size: 1.08rem; }
@@ -145,6 +144,7 @@
           <button class="tool-btn" type="button" data-add="price">Price</button>
           <button class="tool-btn" type="button" data-add="barcode-image">Barcode image</button>
           <button class="tool-btn" type="button" data-add="barcode-number">Barcode number</button>
+          <button class="tool-btn" type="button" data-add="qr-image">QR code</button>
           <button class="tool-btn" type="button" data-add="custom-text">Custom text</button>
         </div>
         <div class="divider"></div>
@@ -213,13 +213,52 @@
 <script id="designer-data" type="application/json">{
   "itemName": "Sample Item",
   "price": "1.00",
-  "barcode": "1234567890128"
+  "barcode": "1234567890128",
+  "qr": "https://example.com"
 }</script>
+
+
 
 <script>
 (() => {
   "use strict";
+  /* ── QR ── library loader (fetched once, cached in localStorage) ── */
+  const QR_LIB_URL = "https://raw.githubusercontent.com/riyadqadri-cmyk/clearbarcode/main/lib/qrcode.min.js";
+  const QR_LIB_KEY = "barcodepro.qrlib";
 
+  function injectQrLib(text) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([text], { type: "text/javascript" });
+      const url = URL.createObjectURL(blob);
+      const s = document.createElement("script");
+      s.src = url;
+      s.onload = () => { URL.revokeObjectURL(url); resolve(); };
+      s.onerror = () => { URL.revokeObjectURL(url); reject(new Error("QR library failed to execute")); };
+      document.body.appendChild(s);
+    });
+  }
+
+  function ensureQrLib() {
+    if (typeof window.qrcode === "function") return Promise.resolve();
+    const cached = localStorage.getItem(QR_LIB_KEY);
+    if (cached) return injectQrLib(cached);
+    return fetch(QR_LIB_URL + "?t=" + Date.now(), { cache: "no-store" })
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      })
+      .then(text => {
+        localStorage.setItem(QR_LIB_KEY, text);
+        return injectQrLib(text);
+      });
+  }
+
+  // Pre-warm the QR library in the background on boot if it's already cached,
+  // so the first "Add QR code" click is instant. If it's not cached, we wait
+  // until the user actually asks for a QR before hitting the network.
+  if (localStorage.getItem(QR_LIB_KEY)) {
+    injectQrLib(localStorage.getItem(QR_LIB_KEY)).catch(() => {});
+  }
   const STORAGE_KEY = "barcodepro.label.layout.v1";
   const PX_PER_MM = 3.7795275591;
   let previewScale = 1;
@@ -284,6 +323,7 @@
       price: "Price",
       "barcode-image": "Barcode image",
       "barcode-number": "Barcode number",
+      "qr-image": "QR code",              /* ── QR ── */
       "custom-text": "Custom text"
     }[type] || type;
   }
@@ -294,6 +334,7 @@
     if (el.type === "price") return el.prefix !== undefined ? el.prefix + data.price : data.price;
     if (el.type === "barcode-number") return data.barcode;
     if (el.type === "barcode-image") return data.barcode;
+    if (el.type === "qr-image") return data.qr || "https://example.com";   /* ── QR ── */
     if (el.type === "custom-text") return el.text || "Custom text";
     return "";
   }
@@ -320,24 +361,20 @@
   function code128Structure(rawValue) {
     let value = String(rawValue ?? "").replace(/[^\x20-\x7E]/g, "?");
     if (!value) value = " ";
-
     let codes = [];
     let codeSet = "B";
     if (/^\d+$/.test(value) && value.length >= 4) {
       if (value.length % 2 === 0) {
-        codes = [105];
-        codeSet = "C";
+        codes = [105]; codeSet = "C";
         for (let i = 0; i < value.length; i += 2) codes.push(Number(value.slice(i, i + 2)));
       } else {
-        codes = [104, value.charCodeAt(0) - 32, 99];
-        codeSet = "B→C";
+        codes = [104, value.charCodeAt(0) - 32, 99]; codeSet = "B→C";
         for (let i = 1; i < value.length; i += 2) codes.push(Number(value.slice(i, i + 2)));
       }
     } else {
       codes = [104];
       for (const ch of value) codes.push(ch.charCodeAt(0) - 32);
     }
-
     let checksum = codes[0];
     for (let i = 1; i < codes.length; i++) checksum += codes[i] * i;
     codes.push(checksum % 103, 106);
@@ -376,14 +413,12 @@
     for (let i = 0; i < 12; i++) sum += Number(first12[i]) * (i % 2 === 0 ? 1 : 3);
     return String((10 - (sum % 10)) % 10);
   }
-
   function normalizeEan13(rawValue) {
     const raw = String(rawValue ?? "").trim();
     if (!/^\d{13}$/.test(raw)) return null;
     if (ean13CheckDigit(raw.slice(0, 12)) !== raw[12]) return null;
     return raw;
   }
-
   function makeEan13Svg(rawValue) {
     const value = normalizeEan13(rawValue);
     if (!value) return null;
@@ -405,9 +440,43 @@
       bars += `<rect x="${leftQuiet + i}" y="0" width="1" height="${isGuard ? 100 : 92}"/>`;
     }
     return {
-      value,
-      totalModules,
+      value, totalModules,
       svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalModules} 100" preserveAspectRatio="none" role="img" aria-label="EAN-13 ${value}"><rect width="100%" height="100%" fill="white"/><g fill="black">${bars}</g></svg>`
+    };
+  }
+
+  /* ── QR ── encoder using vendored qrcode-generator ── */
+  // Returns { size, modules (2D bool array, includes 4-module quiet zone), svg }
+  function makeQrSvg(rawValue) {
+    if (typeof window.qrcode !== "function") {
+      // Library not loaded yet — render a neutral placeholder so the layout
+      // still renders. The real QR appears once the library is loaded.
+      return {
+        size: 21, dataModules: 21,
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21" shape-rendering="crispEdges" role="img" aria-label="QR pending"><rect width="100%" height="100%" fill="#f1f5f9"/><text x="10.5" y="11.5" text-anchor="middle" font-size="2" fill="#64748b">QR</text></svg>`
+      };
+    }
+    const value = String(rawValue ?? "").trim() || " ";
+    const qr = qrcode(0, "M");
+    qr.addData(value);
+    qr.make();
+    const count = qr.getModuleCount();
+    const quiet = 4;
+    const total = count + quiet * 2;
+
+    let dark = "";
+    for (let r = 0; r < count; r++) {
+      for (let c = 0; c < count; c++) {
+        if (qr.isDark(r, c)) {
+          dark += `<rect x="${c + quiet}" y="${r + quiet}" width="1" height="1"/>`;
+        }
+      }
+    }
+
+    return {
+      size: total,          // includes quiet zone
+      dataModules: count,   // excludes quiet zone
+      svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" shape-rendering="crispEdges" role="img" aria-label="QR code"><rect width="100%" height="100%" fill="white"/><g fill="black">${dark}</g></svg>`
     };
   }
 
@@ -420,38 +489,77 @@
     if (ean) {
       const xMm = DOT_MM * 2;
       return {
-        symbology: "EAN-13",
-        encodedValue: raw,
-        totalModules: ean.totalModules,
-        barModules: 95,
-        quietModules: 18,
-        fixedXmm: xMm,
-        minHeightMm: 9.5,
-        recommendedHeightMm: 10.5,
+        symbology: "EAN-13", encodedValue: raw,
+        totalModules: ean.totalModules, barModules: 95, quietModules: 18,
+        fixedXmm: xMm, minHeightMm: 9.5, recommendedHeightMm: 10.5,
         svg: ean.svg,
         note: `Exact 13-digit EAN-13 · ${xMm.toFixed(3)} mm/module (2 dots @ ${PRINTER_DPI} dpi)`
       };
     }
     const code = code128Structure(raw);
     const maxTotalMm = Math.max(20, (layout?.widthMm || 38) - 1.0);
-    const x3 = DOT_MM * 3;
-    const x2 = DOT_MM * 2;
+    const x3 = DOT_MM * 3, x2 = DOT_MM * 2;
     const xMm = code.totalModules * x3 <= maxTotalMm ? x3 : x2;
     const invalidEan = /^\d{13}$/.test(raw)
       ? "13 digits entered, but the EAN-13 check digit is invalid; the exact value is encoded as Code 128."
       : "Exact value encoded as Code 128.";
     return {
-      symbology: `Code 128 (${code.codeSet})`,
-      encodedValue: code.value,
-      totalModules: code.totalModules,
-      barModules: code.barModules,
-      quietModules: code.quietModules * 2,
-      fixedXmm: xMm,
-      minHeightMm: 9.5,
-      recommendedHeightMm: 9.7,
+      symbology: `Code 128 (${code.codeSet})`, encodedValue: code.value,
+      totalModules: code.totalModules, barModules: code.barModules,
+      quietModules: code.quietModules * 2, fixedXmm: xMm,
+      minHeightMm: 9.5, recommendedHeightMm: 9.7,
       svg: makeCode128Svg(raw),
       note: `${invalidEan} ${xMm.toFixed(3)} mm/module (${Math.round(xMm / DOT_MM)} dots @ ${PRINTER_DPI} dpi).`
     };
+  }
+
+  /* ── QR ── sizing: square, minimum ~0.4 mm/module for phone cameras ── */
+  function qrInfo(rawValue) {
+    const q = makeQrSvg(rawValue);
+    const minModuleMm = 0.4;         // ~3 dots @ 203 dpi
+    const recommendedModuleMm = 0.6; // ~5 dots
+    return {
+      symbology: "QR Code (M)",
+      encodedValue: String(rawValue ?? "").trim(),
+      size: q.size,
+      dataModules: q.dataModules,
+      minModuleMm,
+      minSideMm: q.size * minModuleMm,
+      recommendedSideMm: q.size * recommendedModuleMm,
+      svg: q.svg,
+      note: `QR v${Math.floor((q.dataModules - 21) / 4) + 1} · ${q.dataModules}×${q.dataModules} modules · error correction M · built-in quiet zone`
+    };
+  }
+
+  function qrSizing(el) {
+    const info = qrInfo(elementText(el));
+    const widthMm = Math.max(0, Number(el.w) || 0) / PX_PER_MM;
+    const heightMm = Math.max(0, Number(el.h) || 0) / PX_PER_MM;
+    const sideMm = Math.min(widthMm, heightMm);
+    const moduleMm = sideMm / info.size;
+    const square = Math.abs(widthMm - heightMm) <= 0.4;
+    const safeModule = moduleMm >= info.minModuleMm;
+    const safe = square && safeModule;
+    return { ...info, widthMm, heightMm, sideMm, moduleMm, square, safeModule, safe };
+  }
+
+  function safeQrSidePx(el) {
+    const info = qrInfo(elementText(el));
+    return info.size * info.minModuleMm * PX_PER_MM;
+  }
+
+  function autoSizeQr(el) {
+    if (!el || el.type !== "qr-image") return;
+    const info = qrInfo(elementText(el));
+    // Default to recommended module width; clamp to fit the canvas.
+    const canvasWidth = Math.max(1, layout.widthMm * PX_PER_MM);
+    const canvasHeight = Math.max(1, layout.heightMm * PX_PER_MM);
+    const maxSide = Math.min(canvasWidth, canvasHeight) * 0.9;
+    const side = Math.min(info.recommendedSideMm * PX_PER_MM, maxSide);
+    el.w = side;
+    el.h = side;
+    el.x = Math.max(0, (canvasWidth - side) / 2);
+    el.y = clamp(Number(el.y) || 0, 0, Math.max(0, canvasHeight - side));
   }
 
   function barcodeSizing(el) {
@@ -464,12 +572,10 @@
     const safeHeight = heightMm >= info.minHeightMm;
     return { ...info, widthMm, heightMm, xMm, minWidthMm: requiredWidthMm, targetWidthMm: requiredWidthMm, safeWidth, safeHeight, safe: safeWidth && safeHeight };
   }
-
   function safeBarcodeWidthPx(el) {
     const info = barcodeInfo(elementText(el));
     return info.totalModules * info.fixedXmm * PX_PER_MM;
   }
-
   function autoSizeBarcode(el) {
     if (!el || el.type !== "barcode-image") return;
     const info = barcodeInfo(elementText(el));
@@ -485,56 +591,8 @@
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (saved && Array.isArray(saved.elements)) return saved;
-    } catch (error) {
-      console.warn("Could not load barcode layout", error);
-    }
+    } catch (error) { console.warn("Could not load barcode layout", error); }
     return defaultLayout();
-  }
-
-  function fitElementsToCanvas({ persist = false } = {}) {
-    if (!layout || !Array.isArray(layout.elements) || !layout.elements.length) return false;
-    const canvasWidth = Math.max(1, layout.widthMm * PX_PER_MM);
-    const canvasHeight = Math.max(1, layout.heightMm * PX_PER_MM);
-    const margin = Math.min(8, Math.max(2, Math.min(canvasWidth, canvasHeight) * 0.04));
-    const usableWidth = Math.max(20, canvasWidth - margin * 2);
-    const usableHeight = Math.max(18, canvasHeight - margin * 2);
-    let changed = false;
-    let maxRight = 0, maxBottom = 0;
-    layout.elements.forEach(el => {
-      el.x = Number(el.x) || 0;
-      el.y = Number(el.y) || 0;
-      el.w = Math.max(20, Number(el.w) || 20);
-      el.h = Math.max(18, Number(el.h) || 18);
-      maxRight = Math.max(maxRight, el.x + el.w);
-      maxBottom = Math.max(maxBottom, el.y + el.h);
-    });
-    const contentWidth = Math.max(1, maxRight);
-    const contentHeight = Math.max(1, maxBottom);
-    const scale = Math.min(1, usableWidth / contentWidth, usableHeight / contentHeight);
-    if (scale < 0.999) {
-      layout.elements.forEach(el => {
-        el.x = margin + el.x * scale;
-        el.y = margin + el.y * scale;
-        el.w = Math.max(20, el.w * scale);
-        el.h = Math.max(18, el.h * scale);
-        if (el.type !== "barcode-image") el.fontSize = clamp((Number(el.fontSize) || 14) * scale, 6, 72);
-      });
-      changed = true;
-    }
-    layout.elements.forEach(el => {
-      const old = { x: el.x, y: el.y, w: el.w, h: el.h, fontSize: el.fontSize };
-      el.w = clamp(el.w, 20, usableWidth);
-      el.h = clamp(el.h, 18, usableHeight);
-      el.x = clamp(el.x, margin, Math.max(margin, canvasWidth - margin - el.w));
-      el.y = clamp(el.y, margin, Math.max(margin, canvasHeight - margin - el.h));
-      if (el.type !== "barcode-image") {
-        const maxFontForHeight = Math.max(6, el.h * 0.72);
-        el.fontSize = clamp(Number(el.fontSize) || 14, 6, Math.min(72, maxFontForHeight));
-      }
-      if (old.x !== el.x || old.y !== el.y || old.w !== el.w || old.h !== el.h || old.fontSize !== el.fontSize) changed = true;
-    });
-    if (changed && persist) persistLayout(false);
-    return changed;
   }
 
   function persistLayout(showMessage = true) {
@@ -582,6 +640,8 @@
     content.className = "element-content";
     if (el.type === "barcode-image") {
       content.innerHTML = barcodeInfo(elementText(el)).svg;
+    } else if (el.type === "qr-image") {                       /* ── QR ── */
+      content.innerHTML = qrInfo(elementText(el)).svg;
     } else {
       content.textContent = elementText(el);
       content.style.fontSize = (el.fontSize || 14) + "px";
@@ -631,29 +691,29 @@
     });
   }
 
-  function selectedElement() {
-    return layout.elements.find(el => el.id === selectedId) || null;
-  }
-
-  function selectElement(id) {
-    selectedId = id;
-    render();
-  }
+  function selectedElement() { return layout.elements.find(el => el.id === selectedId) || null; }
+  function selectElement(id) { selectedId = id; render(); }
 
   function updateProperties() {
     const el = selectedElement();
     noSelection.hidden = !!el;
     properties.hidden = !el;
     if (!el) return;
-    const isText = el.type !== "barcode-image";
+    const isText = el.type !== "barcode-image" && el.type !== "qr-image";
+    const isQr = el.type === "qr-image";
     controls.text.disabled = false;
     controls.text.value = elementText(el);
-    elementTextLabel.textContent = el.type === "barcode-image" ? "Barcode value" : "Content / value";
-    elementTextHelp.textContent = el.type === "barcode-image"
-      ? "Exactly 13 valid EAN digits use EAN-13. Every other value uses Code 128."
-      : "Edit to override the item value for this label element.";
+    elementTextLabel.textContent =
+      el.type === "barcode-image" ? "Barcode value" :
+      el.type === "qr-image"      ? "QR content" :                 /* ── QR ── */
+      "Content / value";
+    elementTextHelp.textContent =
+      el.type === "barcode-image" ? "Exactly 13 valid EAN digits use EAN-13. Every other value uses Code 128." :
+      el.type === "qr-image"      ? "Text, URL, or any UTF-8 content. Error correction M. Auto-sized to square." :
+      "Edit to override the item value for this label element.";
     barcodeHealth.className = "barcode-health";
     barcodeHealth.textContent = "";
+
     if (el.type === "barcode-image") {
       const b = barcodeSizing(el);
       const widthText = `${b.widthMm.toFixed(1)} mm wide · ${b.heightMm.toFixed(1)} mm high · module ${b.xMm.toFixed(3)} mm`;
@@ -667,7 +727,21 @@
         if (!b.safeHeight) problems.push(`too short; use at least ${b.minHeightMm.toFixed(0)} mm height`);
         barcodeHealth.textContent = `⚠ ${b.symbology} · ${widthText}. ${problems.join("; ")}. ${b.note}`;
       }
+    } else if (isQr) {                                              /* ── QR ── */
+      const q = qrSizing(el);
+      const sizeText = `${q.sideMm.toFixed(1)} mm side · ${q.moduleMm.toFixed(2)} mm/module · ${q.dataModules}×${q.dataModules} modules`;
+      if (q.safe) {
+        barcodeHealth.classList.add("ok");
+        barcodeHealth.textContent = `✓ ${q.symbology} · ${sizeText}. ${q.note}`;
+      } else {
+        barcodeHealth.classList.add(q.safeModule ? "warn" : "bad");
+        const problems = [];
+        if (!q.square) problems.push("not square; QRs scan best as squares");
+        if (!q.safeModule) problems.push(`modules too small; use at least ${q.minSideMm.toFixed(1)} mm side`);
+        barcodeHealth.textContent = `⚠ ${q.symbology} · ${sizeText}. ${problems.join("; ")}. ${q.note}`;
+      }
     }
+
     controls.fontSize.disabled = !isText;
     controls.fontWeight.disabled = !isText;
     controls.textAlign.disabled = !isText;
@@ -687,8 +761,8 @@
       id: makeId(), type,
       x: clamp(12 + offset, 0, canvas.clientWidth - 80),
       y: clamp(12 + offset, 0, canvas.clientHeight - 30),
-      w: type === "barcode-image" ? 150 : 120,
-      h: type === "barcode-image" ? 55 : 28,
+      w: type === "barcode-image" ? 150 : type === "qr-image" ? 90 : 120,
+      h: type === "barcode-image" ? 55  : type === "qr-image" ? 90 : 28,
       fontSize: type === "price" ? 16 : 13,
       fontWeight: type === "price" ? "800" : "700",
       textAlign: "center"
@@ -696,6 +770,7 @@
     if (type === "custom-text") el.value = "Custom text";
     layout.elements.push(el);
     if (type === "barcode-image") autoSizeBarcode(el);
+    if (type === "qr-image") autoSizeQr(el);            /* ── QR ── */
     selectedId = el.id;
     persistLayout(false);
     render();
@@ -711,25 +786,16 @@
 
   canvas.addEventListener("pointerdown", event => {
     const node = event.target.closest(".designer-element");
-    if (!node) {
-      selectedId = null;
-      render();
-      return;
-    }
+    if (!node) { selectedId = null; render(); return; }
     event.preventDefault();
     const id = node.dataset.id;
     selectedId = id;
     const el = selectedElement();
     const resizing = !!event.target.closest("[data-resize]");
     activePointer = {
-      id,
-      mode: resizing ? "resize" : "move",
-      startX: event.clientX,
-      startY: event.clientY,
-      originalX: el.x,
-      originalY: el.y,
-      originalW: el.w,
-      originalH: el.h,
+      id, mode: resizing ? "resize" : "move",
+      startX: event.clientX, startY: event.clientY,
+      originalX: el.x, originalY: el.y, originalW: el.w, originalH: el.h,
       originalFontSize: Number(el.fontSize) || 14
     };
     node.setPointerCapture(event.pointerId);
@@ -755,13 +821,24 @@
         const minBarcodeHeightPx = 10 * PX_PER_MM;
         const maxH = Math.max(18, canvas.clientHeight - Math.max(0, el.y));
         newH = Math.min(maxH, Math.max(Math.min(minBarcodeHeightPx, maxH), newH));
+      } else if (el.type === "qr-image") {                       /* ── QR ── */
+        // Force square; use the larger of the two drag deltas so it feels natural.
+        const side = Math.max(newW, newH);
+        const maxSideW = Math.max(20, canvas.clientWidth - Math.max(0, el.x));
+        const maxSideH = Math.max(18, canvas.clientHeight - Math.max(0, el.y));
+        const maxSide = Math.max(20, Math.min(maxSideW, maxSideH));
+        const clamped = Math.min(maxSide, Math.max(20, side));
+        newW = clamped;
+        newH = clamped;
       }
       const scaleX = newW / Math.max(1, activePointer.originalW);
       const scaleY = newH / Math.max(1, activePointer.originalH);
       const contentScale = Math.min(scaleX, scaleY);
       el.w = newW;
       el.h = newH;
-      if (el.type !== "barcode-image") el.fontSize = clamp(activePointer.originalFontSize * contentScale, 6, 200);
+      if (el.type !== "barcode-image" && el.type !== "qr-image") {
+        el.fontSize = clamp(activePointer.originalFontSize * contentScale, 6, 200);
+      }
     }
     const node = canvas.querySelector(`[data-id="${el.id}"]`);
     if (node) {
@@ -772,6 +849,7 @@
       const content = node.querySelector(".element-content");
       if (content) {
         if (el.type === "barcode-image") content.innerHTML = barcodeInfo(elementText(el)).svg;
+        else if (el.type === "qr-image") content.innerHTML = qrInfo(elementText(el)).svg; /* ── QR ── */
         else content.style.fontSize = (el.fontSize || 14) + "px";
       }
     }
@@ -804,18 +882,33 @@
   });
 
   document.querySelectorAll("[data-add]").forEach(button => {
-    button.addEventListener("click", () => addElement(button.dataset.add));
+    button.addEventListener("click", async () => {
+      if (button.dataset.add === "qr-image" && typeof window.qrcode !== "function") {
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = "Loading QR…";
+        try {
+          await ensureQrLib();
+        } catch (e) {
+          alert("Could not load the QR library. Check your connection and try again.\n\n" + e.message);
+          button.disabled = false;
+          button.textContent = original;
+          return;
+        }
+        button.disabled = false;
+        button.textContent = original;
+      }
+      addElement(button.dataset.add);
+    });
   });
 
   controls.labelWidth.addEventListener("change", () => {
     layout.widthMm = clamp(Number(controls.labelWidth.value) || 38, 20, 150);
-    persistLayout(false);
-    render();
+    persistLayout(false); render();
   });
   controls.labelHeight.addEventListener("change", () => {
     layout.heightMm = clamp(Number(controls.labelHeight.value) || 25.4, 15, 100);
-    persistLayout(false);
-    render();
+    persistLayout(false); render();
   });
   controls.gridToggle.addEventListener("change", () => {
     layout.grid = controls.gridToggle.value === "on";
@@ -834,8 +927,10 @@
   controls.text.addEventListener("input", () => {
     const el = selectedElement();
     if (!el) return;
+    // QR and barcode elements share the same text-override model.
     el.value = controls.text.value;
     if (el.type === "barcode-image") autoSizeBarcode(el);
+    if (el.type === "qr-image") autoSizeQr(el);                /* ── QR ── */
     persistLayout(false);
     render();
   });
@@ -852,10 +947,17 @@
       const safeW = safeBarcodeWidthPx(el);
       const maxW = Math.max(20, canvas.clientWidth - Math.max(0, el.x));
       requested = Math.min(maxW, Math.max(Math.min(safeW, maxW), requested));
+    } else if (el.type === "qr-image") {                        /* ── QR ── */
+      const maxSide = Math.max(20, Math.min(canvas.clientWidth - Math.max(0, el.x), canvas.clientHeight - Math.max(0, el.y)));
+      requested = Math.min(maxSide, Math.max(20, requested));
+      el.w = requested;
+      el.h = requested; // keep square
+      persistLayout(false);
+      render();
+      return;
     }
     el.w = requested;
-    persistLayout(false);
-    render();
+    persistLayout(false); render();
   });
   controls.h.addEventListener("input", () => {
     const el = selectedElement();
@@ -865,10 +967,17 @@
       const minH = 10 * PX_PER_MM;
       const maxH = Math.max(18, canvas.clientHeight - Math.max(0, el.y));
       requested = Math.min(maxH, Math.max(Math.min(minH, maxH), requested));
+    } else if (el.type === "qr-image") {                        /* ── QR ── */
+      const maxSide = Math.max(20, Math.min(canvas.clientWidth - Math.max(0, el.x), canvas.clientHeight - Math.max(0, el.y)));
+      requested = Math.min(maxSide, Math.max(20, requested));
+      el.w = requested;
+      el.h = requested; // keep square
+      persistLayout(false);
+      render();
+      return;
     }
     el.h = requested;
-    persistLayout(false);
-    render();
+    persistLayout(false); render();
   });
 
   document.getElementById("deleteButton").addEventListener("click", () => deleteElement());
@@ -883,11 +992,8 @@
 
   function escapePrintHtml(value) {
     return String(value ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+      .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
   }
 
   function buildPrintableElement(el) {
@@ -898,6 +1004,8 @@
     let contentHtml;
     if (el.type === "barcode-image") {
       contentHtml = barcodeInfo(elementText(el)).svg;
+    } else if (el.type === "qr-image") {                        /* ── QR ── */
+      contentHtml = qrInfo(elementText(el)).svg;
     } else {
       const align = el.textAlign || "center";
       const justify = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
@@ -910,10 +1018,11 @@
           ${escapePrintHtml(elementText(el))}
         </div>`;
     }
+    const isCode = el.type === "barcode-image" || el.type === "qr-image";
     return `
       <div class="print-element"
            style="left:${leftMm}mm;top:${topMm}mm;width:${widthMm}mm;height:${heightMm}mm;">
-        ${el.type === "barcode-image" ? `<div class="print-content print-barcode">${contentHtml}</div>` : contentHtml}
+        ${isCode ? `<div class="print-content print-barcode">${contentHtml}</div>` : contentHtml}
       </div>`;
   }
 
@@ -949,15 +1058,18 @@
   function printLabels() {
     persistLayout(false);
     const unsafe = layout.elements
-      .filter(el => el.type === "barcode-image")
-      .map(el => ({ el, sizing: barcodeSizing(el) }))
+      .filter(el => el.type === "barcode-image" || el.type === "qr-image")   /* ── QR ── */
+      .map(el => ({ el, sizing: el.type === "qr-image" ? qrSizing(el) : barcodeSizing(el) }))
       .filter(x => !x.sizing.safe);
     if (unsafe.length) {
       const detail = unsafe.map((x, i) => {
         const b = x.sizing;
+        if (x.el.type === "qr-image") {
+          return `QR ${i + 1}: ${b.symbology}, ${b.sideMm.toFixed(1)} × ${b.sideMm.toFixed(1)} mm; module ${b.moduleMm.toFixed(2)} mm (min ${b.minModuleMm} mm); needs ${b.minSideMm.toFixed(1)} mm side.`;
+        }
         return `Barcode ${i + 1}: ${b.symbology}, ${b.widthMm.toFixed(1)} × ${b.heightMm.toFixed(1)} mm; required width ${b.minWidthMm.toFixed(1)} mm and minimum height ${b.minHeightMm.toFixed(1)} mm.`;
       }).join("\n");
-      alert(`Printing blocked to protect scan reliability.\n\n${detail}\n\nThe program will automatically re-size the barcode. If this message remains, reset the layout.`);
+      alert(`Printing blocked to protect scan reliability.\n\n${detail}\n\nThe program will automatically re-size the code. If this message remains, reset the layout.`);
       return;
     }
     const copies = clamp(Number(controls.copyCount.value) || 1, 1, 200);
@@ -1017,17 +1129,19 @@
       data.itemName = savedItem.itemName ?? data.itemName;
       data.price = savedItem.price ?? data.price;
       data.barcode = savedItem.barcode ?? data.barcode;
+      data.qr = savedItem.qr ?? data.qr;                       /* ── QR ── */
     }
-  } catch (error) {
-    console.warn("Could not load saved item data", error);
-  }
+  } catch (error) { console.warn("Could not load saved item data", error); }
   itemInputs.name.value = data.itemName;
   itemInputs.price.value = data.price;
   itemInputs.barcode.value = data.barcode;
   refreshItemSummary();
 
   layout = loadLayout();
-  layout.elements.forEach(el => { if (el.type === "barcode-image") autoSizeBarcode(el); });
+  layout.elements.forEach(el => {
+    if (el.type === "barcode-image") autoSizeBarcode(el);
+    if (el.type === "qr-image") autoSizeQr(el);                /* ── QR ── */
+  });
   render();
   requestAnimationFrame(resizePreview);
 })();
