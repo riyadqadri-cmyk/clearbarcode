@@ -1,11 +1,11 @@
 # clearbarcode
 
-A lightweight, browser-based barcode label generator designed for fast, reliable printing on thermal labels. This project is intentionally simple: it runs as a standalone HTML app with no backend or server required, which makes it easy to run on local machines and older hardware.
+A lightweight, browser-based barcode label generator designed for fast, reliable printing on thermal labels. This project is intentionally simple: it runs as a standalone HTML app with no backend or server required.
 
 This repository contains two versions:
 
 - BarcodeSIMPLE.html — a simplified version built for everyday use, with English and Arabic labels
-- BarcodePRO.html — a more advanced designer with draggable and resizable label elements
+- BarcodePRO.html — a more advanced designer with draggable and resizable label elements and a built-in self-updating shell that can hot-swap app logic from app.html in the project root
 
 The main focus is reliability, especially for older users or people who are not comfortable with technology.
 
@@ -43,6 +43,7 @@ The pro version adds more design power for users who need custom label layouts. 
 - grid toggle for easier placement
 - saved layout in browser local storage
 - more flexible printing for custom label arrangements
+- a self-updating / hot-swappable app shell that can fetch and apply newer app.html logic while keeping the stable shell in place
 
 ## Barcode logic
 
@@ -97,6 +98,7 @@ The major objective of this project is reliability, especially for older or non-
 - The project is intentionally self-contained and lightweight
 - It works entirely in the browser, with no server required
 - It is optimized for practical reliability rather than advanced enterprise features
+- BarcodePRO includes a hot-swappable update mechanism that can refresh the app from app.html in the root while preserving the shell UI
 
 This was made with the help of ChatGPT.
 
