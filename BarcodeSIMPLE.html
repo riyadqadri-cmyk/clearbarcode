@@ -25,20 +25,24 @@ button,input{font:inherit}
 .bi-row .en{font-weight:700;text-align:left;color:#334155}.bi-row .ar{font-weight:700;text-align:right;color:#334155;direction:rtl}
 .control{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:12px 12px;background:#fff;font-size:1rem;min-width:0}
 .control:focus{outline:2px solid #bfdbfe;border-color:#60a5fa}
-.size-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}.size-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:#f8fafc}.size-card .dual{display:flex;justify-content:space-between;gap:8px;font-size:.82rem;font-weight:800;color:#475569;margin-bottom:6px}.size-card .dual span:last-child{direction:rtl}
-.check-row{display:grid;grid-template-columns:105px minmax(0,1fr) 105px;align-items:center;gap:10px;margin:4px 0 14px}.check-center{display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:11px;background:#f8fafc;cursor:pointer}.check-center input{width:20px;height:20px;accent-color:var(--primary)}
+.size-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}.size-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:#f8fafc}.size-card .dual{display:flex;justify-content:space-between;font-size:.85rem;font-weight:600;margin-bottom:8px;color:#475569}
+.check-row{display:grid;grid-template-columns:105px minmax(0,1fr) 105px;align-items:center;gap:10px;margin:4px 0 14px}
+.check-center{display:flex;align-items:center;justify-content:center;gap:10px;border-radius:8px;height:44px;cursor:pointer}
+input[type="checkbox"]{width:20px;height:20px;cursor:pointer;accent-color:var(--primary)}
+.check-center span{display:none;font-weight:800;color:var(--success);font-size:1.3rem}
+input[type="checkbox"]:checked~span{display:block}
 .status{border-radius:12px;padding:11px 13px;margin-top:12px;font-size:.9rem;line-height:1.45;display:none}.status.ok{display:block;background:#ecfdf5;color:#166534;border:1px solid #bbf7d0}.status.bad{display:block;background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
 .hint{margin-top:12px;color:var(--muted);font-size:.82rem;line-height:1.5;text-align:center}
 .preview-panel{min-height:calc(100vh - 115px);display:grid;place-items:center;padding:30px;overflow:auto}
 .preview-stage{min-width:100%;min-height:100%;display:grid;place-items:center;padding:40px}
-.label{position:relative;width:calc(var(--label-width-mm)*3.7795275591px);height:calc(var(--label-height-mm)*3.7795275591px);background:#fff;border:1px solid #94a3b8;box-shadow:0 18px 42px rgba(15,23,42,.18);overflow:hidden;transform-origin:center center}
+.label{position:relative;width:calc(var(--label-width-mm)*3.7795275591px);height:calc(var(--label-height-mm)*3.7795275591px);background:#fff;border:1px solid #94a3b8;box-shadow:0 18px 42px rgba(15,23,42,.08)}
 .label-item{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;color:#000;line-height:1.05;padding:0}
 .label-item svg{display:block;width:100%;height:100%;overflow:visible}
 .label-name,.label-price,.label-number{font-family:Arial,"Segoe UI",Tahoma,sans-serif;white-space:nowrap}
 .label-name{font-weight:700}.label-price{font-weight:800}.label-number{font-family:"Courier New",monospace;font-weight:600;letter-spacing:.02em}
 .empty-note{position:absolute;inset:0;display:grid;place-items:center;color:#94a3b8;font-size:11px;text-align:center;padding:10px}
 @media(max-width:850px){.workspace{grid-template-columns:1fr}.preview-panel{min-height:480px}.bi-row,.check-row{grid-template-columns:90px minmax(0,1fr) 90px}}
-@media(max-width:520px){.workspace{padding:10px}.panel-body{padding:14px}.bi-row,.check-row{grid-template-columns:72px minmax(0,1fr) 72px;gap:6px}.bi-row .en,.bi-row .ar,.check-row .en,.check-row .ar{font-size:.82rem}.preview-stage{padding:15px}.topbar{padding:12px 14px}}
+@media(max-width:520px){.workspace{padding:10px}.panel-body{padding:14px}.bi-row,.check-row{grid-template-columns:72px minmax(0,1fr) 72px;gap:6px}.bi-row .en,.bi-row .ar,.check-row .en,.check-row .ar{font-size:.85rem}}
 </style>
 </head>
 <body>
@@ -156,9 +160,9 @@ const EAN_L=["0001101","0011001","0010011","0111101","0100011","0110001","010111
 const EAN_G=["0100111","0110011","0011011","0100001","0011101","0111001","0000101","0010001","0001001","0010111"];
 const EAN_R=["1110010","1100110","1101100","1000010","1011100","1001110","1010000","1000100","1001000","1110100"];
 const EAN_PARITY=["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG","LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"];
-function ean13CheckDigit(first12){if(!/^\d{12}$/.test(first12))return null;let sum=0;for(let i=0;i<12;i++)sum+=Number(first12[i])*(i%2===0?1:3);return String((10-(sum%10))%10);}
 function makeEan13Svg(raw){
- const value=String(raw??"").trim();if(!/^\d{13}$/.test(value)||ean13CheckDigit(value.slice(0,12))!==value[12])return null;
+ const value=String(raw??"").trim();
+ if(!/^\d{13}$/.test(value))return null;
  const parity=EAN_PARITY[Number(value[0])];let bits="101";
  for(let i=1;i<=6;i++){const d=Number(value[i]);bits+=parity[i-1]==="L"?EAN_L[d]:EAN_G[d];}
  bits+="01010";for(let i=7;i<=12;i++)bits+=EAN_R[Number(value[i])];bits+="101";
@@ -182,7 +186,7 @@ function getBarcodePlan(value,labelWidthMm){
 }
 function fitTextPx(text,maxWidthPx,maxHeightPx,startPx,minPx=6,weight=700){
  if(!text)return 0;
- const probe=document.createElement("span");probe.style.cssText=`position:absolute;visibility:hidden;white-space:nowrap;font-family:Arial,'Segoe UI',Tahoma,sans-serif;font-weight:${weight};line-height:1;`;
+ const probe=document.createElement("span");probe.style.cssText=`position:absolute;visibility:hidden;white-space:nowrap;font-family:Arial,'Segoe UI',Tahoma,sans-serif;font-weight:${weight};line-height:1.05`;
  probe.textContent=text;document.body.appendChild(probe);
  let size=startPx;
  for(;size>=minPx;size-=.5){probe.style.fontSize=size+"px";if(probe.offsetWidth<=maxWidthPx&&probe.offsetHeight<=maxHeightPx)break;}
@@ -225,16 +229,16 @@ function render(){
    const div=document.createElement("div");div.className=`label-item label-${item.type}`;
    div.style.left=item.x*PX_PER_MM+"px";div.style.top=item.y*PX_PER_MM+"px";div.style.width=item.w*PX_PER_MM+"px";div.style.height=item.h*PX_PER_MM+"px";
    if(item.type==="barcode")div.innerHTML=item.svg;
-   else{div.textContent=item.text;const start=item.type==="price"?22:item.type==="name"?18:11;const min=item.type==="number"?6:7;div.style.fontSize=fitTextPx(item.text,item.w*PX_PER_MM,item.h*PX_PER_MM,start,min,item.weight)+"px";div.style.fontWeight=item.weight;}
+   else{div.textContent=item.text;const start=item.type==="price"?22:item.type==="name"?18:11;const min=item.type==="number"?6:7;div.style.fontSize=fitTextPx(item.text,item.w*PX_PER_MM,item.h*PX_PER_MM,start,min,item.weight)+"px";div.style.fontWeight=item.weight}
    els.canvas.appendChild(div);
  }
- if(!lm.hasAny){const note=document.createElement("div");note.className="empty-note";note.innerHTML="Enter any field to preview<br>أدخل أي حقل لعرض الملصق";els.canvas.appendChild(note);}
+ if(!lm.hasAny){const note=document.createElement("div");note.className="empty-note";note.innerHTML="Enter any field to preview<br>أدخل أي حقل لعرض الملصق";els.canvas.appendChild(note)}
  let ok=true,msg="";
  if(lm.barcodePlan){
-   if(!lm.barcodePlan.fits){ok=false;msg=`Barcode is too long for ${m.width.toFixed(1)} mm label. Use a wider label. | الباركود طويل جداً لهذا العرض، استخدم ملصقاً أعرض.`;}
+   if(!lm.barcodePlan.fits){ok=false;msg=`Barcode is too long for ${m.width.toFixed(1)} mm label. Use a wider label. | الباركود طويل جداً لهذا العرض، استخدم ملصقاً أعرض.`}
    else{
      const barcodeItem=lm.items.find(x=>x.type==="barcode");
-     if(!barcodeItem||barcodeItem.h<lm.barcodePlan.minHeightMm-.01){ok=false;msg=`Label height is too small for a reliable barcode. Increase the height. | ارتفاع الملصق غير كافٍ لباركود موثوق.`;}
+     if(!barcodeItem||barcodeItem.h<lm.barcodePlan.minHeightMm-.01){ok=false;msg=`Label height is too small for a reliable barcode. Increase the height. | ارتفاع الملصق غير كافٍ. زد الارتفاع.`}
      else msg=`✓ ${lm.barcodePlan.symbology} · ${lm.barcodePlan.widthMm.toFixed(1)} mm · ${lm.barcodePlan.xMm.toFixed(3)} mm/module`;
    }
  }
@@ -258,7 +262,7 @@ function buildPrintHtml(){
    return `<div class="i ${cls}" style="left:${item.x}mm;top:${item.y}mm;width:${item.w}mm;height:${item.h}mm;font-size:${fontPx}px;font-weight:${item.weight}">${esc(item.text)}</div>`;
  }).join("");
  return `<!doctype html><html><head><meta charset="utf-8"><title>Label</title><style>
- *{box-sizing:border-box} @page{size:${m.width}mm ${m.height}mm;margin:0} html,body{margin:0;padding:0;width:${m.width}mm;height:${m.height}mm;overflow:hidden;background:#fff}.label{position:relative;width:${m.width}mm;height:${m.height}mm;overflow:hidden;background:#fff}.i{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;color:#000;line-height:1.05;font-family:Arial,'Segoe UI',Tahoma,sans-serif;white-space:nowrap}.n{font-family:'Courier New',monospace;letter-spacing:.02em}.b svg{display:block;width:100%!important;height:100%!important}.b svg rect{shape-rendering:crispEdges}
+ *{box-sizing:border-box} @page{size:${m.width}mm ${m.height}mm;margin:0} html,body{margin:0;padding:0;width:${m.width}mm;height:${m.height}mm;overflow:hidden;background:#fff}.label{position:relative;width:100%;height:100%}.i{position:absolute;overflow:hidden;color:#000;line-height:1.05;display:flex;align-items:center;justify-content:center}.b svg{width:100%;height:100%;overflow:visible}.t,.p,.n{font-family:Arial,Tahoma,sans-serif;white-space:nowrap}.p,.t{overflow:hidden;text-overflow:ellipsis}.n{font-family:'Courier New',monospace;letter-spacing:.02em}@media print{body{margin:0;padding:0}}
  </style></head><body><div class="label">${items}</div></body></html>`;
 }
 function printLabel(){
