@@ -173,7 +173,7 @@ function makeEan13Svg(raw){
 }
 function getBarcodePlan(value,labelWidthMm){
  const raw=String(value??"").trim();if(!raw)return null;
- const maxWidth=Math.max(0,labelWidthMm-2.6);
+ const maxWidth=Math.max(0,labelWidthMm-1.0);
  const is13Digit=/^\d{13}$/.test(raw);
  const hasValidChecksum=is13Digit&&ean13CheckDigit(raw.slice(0,12))===raw[12];
  if(is13Digit&&hasValidChecksum){
