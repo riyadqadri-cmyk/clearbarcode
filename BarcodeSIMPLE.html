@@ -88,6 +88,16 @@ function injectUpdateButton(){
   btn.id="shellUpdateButton";
   btn.type="button";
   btn.className="shell-update-btn"+(activeMode==="updated"?" revert":"");
+  btn.style.cssText=[
+    "border:1px solid rgba(255,255,255,.28)",
+    "border-radius:12px",
+    "background:"+(activeMode==="updated"?"#7f1d1d":"rgba(255,255,255,.12)"),
+    "color:#fff",
+    "font:800 .9rem/1 'Segoe UI',Tahoma,Arial,sans-serif",
+    "padding:13px 17px",
+    "cursor:pointer",
+    "white-space:nowrap"
+  ].join(";");
   btn.textContent=activeMode==="updated"?"Revert | رجوع":"Update | تحديث";
   btn.title=activeMode==="updated"?"Return to the built-in frozen version":"Install the latest SIMPLE update";
   btn.disabled=busy;
