@@ -288,6 +288,7 @@ function printLabel(){
 [els.name,els.barcode,els.price,els.showNumber,els.width,els.height].forEach(el=>el.addEventListener(el.type==="checkbox"?"change":"input",render));
 els.print.addEventListener("click",printLabel);window.addEventListener("resize",render);
 render();
+window.__BARCODE_SIMPLE_READY__=true;
 })();
 </script>
 </body>
