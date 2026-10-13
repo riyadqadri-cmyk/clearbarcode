@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="barcode-simple-app" content="1">
-<meta name="app-version" content="1.1.0">
+<meta name="app-version" content="1.2.0">
 <title>Simple Barcode Label Printer | طباعة ملصق الباركود</title>
 <style>
 :root{
@@ -143,7 +143,15 @@ input[type="checkbox"]:checked~span{display:block}
           </div>
         </div>
 
-        <div id="status" class="status" aria-live="polite"></div>
+        <div class="field" style="padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin:12px 0">
+<label for="barcodePrintWidth">Barcode print width | عرض الباركود</label>
+<input id="barcodePrintWidth" type="range" min="20" max="37" step="0.1" style="width:100%">
+<output id="barcodePrintWidthValue"></output>
+<div style="font-size:13px;margin:8px 0">Increase gradually until the printed EAN-13 scans. Saved on this browser.<br>زد العرض تدريجياً حتى تتم قراءة الملصق. يتم الحفظ تلقائياً على هذا المتصفح.</div>
+<button id="barcodeWidthTest" class="btn" type="button">Print one test | طباعة اختبار</button>
+<div id="barcodeWidthSaveStatus" role="status" style="font-size:12px"></div>
+</div>
+<div id="status" class="status" aria-live="polite"></div>
         <div class="hint">Empty fields are not printed. The barcode is sized automatically for reliable scanning.<br>الحقول الفارغة لا تتم طباعتها، ويتم ضبط الباركود تلقائياً.</div>
       </div>
     </section>
@@ -217,6 +225,30 @@ function makeEan13Svg(raw){
  for(let i=0;i<bits.length;i++){if(bits[i]!=="1")continue;const guard=i<3||(i>=45&&i<50)||i>=92;bars+=`<rect x="${leftQuiet+i}" y="0" width="1" height="${guard?100:92}"/>`;}
  return{value,totalModules,svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalModules} 100" preserveAspectRatio="none"><rect width="100%" height="100%" fill="white"/><g fill="black">${bars}</g></svg>`};
 }
+
+const BARCODE_WIDTH_KEY = "clearbarcode.ean13.printWidth.v1";
+let savedBarcodeWidths = {};
+try {
+  const saved = JSON.parse(localStorage.getItem(BARCODE_WIDTH_KEY) || "{}");
+  if (saved && typeof saved === "object" && !Array.isArray(saved)) savedBarcodeWidths = saved;
+} catch (_) {}
+function calibratedEanWidth(labelWidth) {
+  const max = Math.max(1, Number(labelWidth) - 1);
+  const min = Math.min(113 * 25.4 / 203 * 2, max);
+  const saved = Number(savedBarcodeWidths[String(Number(labelWidth))]);
+  return Math.max(min, Math.min(max, Number.isFinite(saved) && saved > 0 ? saved : min));
+}
+function syncBarcodeWidth(labelWidth) {
+  const slider = document.getElementById("barcodePrintWidth");
+  const max = Math.max(1, Number(labelWidth) - 1);
+  slider.min = Math.min(113 * 25.4 / 203 * 2, max).toFixed(3);
+  slider.max = max.toFixed(3);
+  slider.value = calibratedEanWidth(labelWidth);
+  slider.disabled = Number(slider.max) <= Number(slider.min);
+  document.getElementById("barcodePrintWidthValue").textContent =
+    calibratedEanWidth(labelWidth).toFixed(1) + " mm (including blank margins) | مم";
+}
+
 function getBarcodePlan(value,labelWidthMm){
  const raw=String(value??"").trim();if(!raw)return null;
  const maxWidth=Math.max(0,labelWidthMm-1.0);
@@ -225,7 +257,7 @@ function getBarcodePlan(value,labelWidthMm){
  if(is13Digit&&hasValidChecksum){
    const ean=makeEan13Svg(raw);
    if(ean){
-     const xMm=DOT_MM*1.5;
+     const xMm=calibratedEanWidth(labelWidthMm)/ean.totalModules;
      const required=ean.totalModules*xMm;
      return{symbology:"EAN-13",value:raw,totalModules:ean.totalModules,xMm,widthMm:required,minHeightMm:9.5,heightMm:9.7,svg:ean.svg,fits:required<=maxWidth+0.01};
    }
@@ -274,7 +306,7 @@ function layoutModel(m){
  return{items:out,barcodePlan,hasAny:hasName||hasBarcode||hasPrice};
 }
 function render(){
- const m=getModel();els.width.value=m.width;els.height.value=m.height;
+ const m=getModel();syncBarcodeWidth(m.width);els.width.value=m.width;els.height.value=m.height;
  document.documentElement.style.setProperty("--label-width-mm",m.width);document.documentElement.style.setProperty("--label-height-mm",m.height);
  const lm=layoutModel(m);els.canvas.innerHTML="";
  for(const item of lm.items){
@@ -328,6 +360,17 @@ function printLabel(){
 }
 [els.name,els.barcode,els.price,els.showNumber,els.width,els.height].forEach(el=>el.addEventListener(el.type==="checkbox"?"change":"input",render));
 els.print.addEventListener("click",printLabel);window.addEventListener("resize",render);
+document.getElementById("barcodePrintWidth").addEventListener("input", event => {
+ const width=getModel().width;
+ savedBarcodeWidths[String(width)]=Number(event.target.value);
+ try {localStorage.setItem(BARCODE_WIDTH_KEY,JSON.stringify(savedBarcodeWidths));document.getElementById("barcodeWidthSaveStatus").textContent="Saved | تم الحفظ";}
+ catch(_){document.getElementById("barcodeWidthSaveStatus").textContent="Could not save; this width works for this session only.";}
+ render();
+});
+document.getElementById("barcodeWidthTest").addEventListener("click", () => {
+ if(!makeEan13Svg(els.barcode.value.trim())){alert("Enter a valid EAN-13 barcode first. | أدخل باركود EAN-13 صحيحاً أولاً");return;}
+ printLabel();
+});
 render();
 window.__BARCODE_SIMPLE_READY__=true;
 })();
