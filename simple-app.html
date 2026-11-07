@@ -29,7 +29,7 @@ button,input{font:inherit}
 .bi-row .en{font-weight:700;text-align:left;color:#334155}.bi-row .ar{font-weight:700;text-align:right;color:#334155;direction:rtl}
 .control{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:12px 12px;background:#fff;font-size:1rem;min-width:0}
 .control:focus{outline:2px solid #bfdbfe;border-color:#60a5fa}
-.size-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}.size-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:#f8fafc}.size-card .dual{display:flex;justify-content:space-between;align-items:center;font-size:.85rem;font-weight:600;margin-bottom:8px;color:#475569}
+.size-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}.size-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:#f8fafc}.size-card .dual{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:.85rem;font-weight:700}
 .check-row{display:grid;grid-template-columns:105px minmax(0,1fr) 105px;align-items:center;gap:10px;margin:4px 0 14px}
 .check-center{display:flex;align-items:center;justify-content:center;gap:10px;border-radius:8px;height:44px;cursor:pointer}
 input[type="checkbox"]{width:20px;height:20px;cursor:pointer;accent-color:var(--primary)}
@@ -39,7 +39,7 @@ input[type="checkbox"]:checked~span{display:block}
 .hint{margin-top:12px;color:var(--muted);font-size:.82rem;line-height:1.5;text-align:center}
 .preview-panel{min-height:calc(100vh - 115px);display:grid;place-items:center;padding:30px;overflow:auto}
 .preview-stage{min-width:100%;min-height:100%;display:grid;place-items:center;padding:40px}
-.label{position:relative;width:calc(var(--label-width-mm)*3.7795275591px);height:calc(var(--label-height-mm)*3.7795275591px);background:#f8fafc;border:1px solid #94a3b8;box-shadow:0 18px 42px rgba(15,23,42,.08)}
+.label{position:relative;width:calc(var(--label-width-mm)*3.7795275591px);height:calc(var(--label-height-mm)*3.7795275591px);background:#f8fafc;border:1px solid #94a3b8;box-shadow:0 18px 42px rgba(15,23,42,.16);transform-origin:center center}
 .label-item{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;color:#000;line-height:1.05;padding:0}
 .label-item svg{display:block;width:100%;height:100%;overflow:visible}
 .label-name,.label-price,.label-number{font-family:Arial,"Segoe UI",Tahoma,sans-serif;white-space:nowrap}
@@ -156,15 +156,13 @@ input[type="checkbox"]:checked~span{display:block}
         </div>
 
         <div class="field" style="padding:12px;border:1px solid #cbd5e1;border-radius:10px;margin:12px 0">
-          <label for="barcodePrintWidth">Barcode print width | عرض الباركود</label>
+          <label for="barcodePrintWidth">Resize | تغيير الحجم</label>
           <input id="barcodePrintWidth" type="range" min="20" max="37" step="0.1" style="width:100%">
           <output id="barcodePrintWidthValue"></output>
-          <div style="font-size:13px;margin:8px 0">Increase gradually until the printed EAN-13 scans. Saved on this browser.<br>زد العرض تدريجياً حتى تتم قراءة الملصق. يتم الحفظ داخل هذا المتصفح.</div>
-          <button id="barcodeWidthTest" class="btn" type="button">Print one test | طباعة اختبار</button>
           <div id="barcodeWidthSaveStatus" role="status" style="font-size:12px"></div>
         </div>
         <div id="status" class="status" aria-live="polite"></div>
-        <div class="hint">Empty fields are not printed. The barcode is sized automatically for reliable scanning.<br>الحقول الفارغة لا تتم طباعتها، ويتم ضبط الباركود تلقائياً لضمان القراءة المضمونة.</div>
+        <div class="hint">Empty fields are not printed. The barcode is sized automatically for reliable scanning.<br>الحقول الفارغة لا تتم طباعتها، ويتم ضبط الباركود تلقائياً لضمان سهولة المسح.</div>
       </div>
     </section>
 
@@ -289,7 +287,7 @@ input[type="checkbox"]:checked~span{display:block}
   }
   function fitTextPx(text,maxWidthPx,maxHeightPx,startPx,minPx=6,weight=700){
     if(!text)return 0;
-    const probe=document.createElement("span");probe.style.cssText=`position:absolute;visibility:hidden;white-space:nowrap;font-family:Arial,'Segoe UI',Tahoma,sans-serif;font-weight:${weight};line-height:1.05;`;
+    const probe=document.createElement("span");probe.style.cssText=`position:absolute;visibility:hidden;white-space:nowrap;font-family:Arial,'Segoe UI',Tahoma,sans-serif;font-weight:${weight};line-height:1`;
     probe.textContent=text;document.body.appendChild(probe);
     let size=startPx;
     for(;size>=minPx;size-=.5){probe.style.fontSize=size+"px";if(probe.offsetWidth<=maxWidthPx&&probe.offsetHeight<=maxHeightPx)break;}
@@ -332,20 +330,20 @@ input[type="checkbox"]:checked~span{display:block}
       const div=document.createElement("div");div.className=`label-item label-${item.type}`;
       div.style.left=item.x*PX_PER_MM+"px";div.style.top=item.y*PX_PER_MM+"px";div.style.width=item.w*PX_PER_MM+"px";div.style.height=item.h*PX_PER_MM+"px";
       if(item.type==="barcode")div.innerHTML=item.svg;
-      else{div.textContent=item.text;const start=item.type==="price"?22:item.type==="name"?18:11;const min=item.type==="number"?6:7;div.style.fontSize=fitTextPx(item.text,item.w*PX_PER_MM,item.h*PX_PER_MM,start,min,item.weight)+"px";div.style.fontWeight=item.weight;}
+      else{div.textContent=item.text;const start=item.type==="price"?22:item.type==="name"?18:11;const min=item.type==="number"?6:7;div.style.fontSize=fitTextPx(item.text,item.w*PX_PER_MM,item.h*PX_PER_MM,start,min,item.weight)+"px";}
       els.canvas.appendChild(div);
     }
     if(!lm.hasAny){const note=document.createElement("div");note.className="empty-note";note.innerHTML="Enter any field to preview<br>أدخل أي حقل لعرض الملصق";els.canvas.appendChild(note);}
     let ok=true,msg="";
     if(lm.barcodePlan){
-      if(!lm.barcodePlan.fits){ok=false;msg=`Barcode is too long for ${m.width.toFixed(1)} mm label. Use a wider label. | الباركود طويل جداً لهذا العرض، استخدم ملصقا أوسع.`;}
+      if(!lm.barcodePlan.fits){ok=false;msg=`Barcode is too long for ${m.width.toFixed(1)} mm label. Use a wider label. | الباركود طويل جداً لهذا العرض، استخدم ملصقاً أعرض.`;}
       else{
         const barcodeItem=lm.items.find(x=>x.type==="barcode");
-        if(!barcodeItem||barcodeItem.h<lm.barcodePlan.minHeightMm-.01){ok=false;msg=`Label height is too small for a reliable barcode. Increase the height. | ارتفاع الملصق غير كافٍ. زِد الارتفاع.`;}
+        if(!barcodeItem||barcodeItem.h<lm.barcodePlan.minHeightMm-.01){ok=false;msg=`Label height is too small for a reliable barcode. Increase the height. | ارتفاع الملصق غير كافٍ لباركود موثوق. زد الارتفاع.`;}
         else msg=`✓ ${lm.barcodePlan.symbology} · ${lm.barcodePlan.widthMm.toFixed(1)} mm · ${lm.barcodePlan.xMm.toFixed(3)} mm/module`;
       }
     }
-    els.status.className="status"+(msg?(ok?" ok":" bad"):"" );
+    els.status.className="status"+(msg?(ok?" ok":" bad"):"");
     els.status.textContent=msg;els.print.disabled=!ok||!lm.hasAny;
     fitPreview(m);
   }
@@ -366,7 +364,8 @@ input[type="checkbox"]:checked~span{display:block}
       return `<div class="i ${cls}" style="left:${item.x}mm;top:${item.y}mm;width:${item.w}mm;height:${item.h}mm;font-size:${fontPx}px;font-weight:${item.weight}">${esc(item.text)}</div>`;
     }).join("");
     return `<!doctype html><html><head><meta charset="utf-8"><title>Label</title><style>
-      *{box-sizing:border-box} @page{size:${m.width}mm ${m.height}mm;margin:0} html,body{margin:0;padding:0;width:${m.width}mm;height:${m.height}mm;overflow:hidden;background:#fff}.label{position:relative;width:${m.width}mm;height:${m.height}mm}.i{position:absolute;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#000;line-height:1.05;text-align:center}.i.b svg{display:block;width:100%;height:100%}.i.n,.i.t,.i.p{white-space:nowrap}.i.n{font-family:"Courier New",monospace}.@media print{body{margin:0}} </style></head><body><div class="label">${items}</div></body></html>`;
+      *{box-sizing:border-box} @page{size:${m.width}mm ${m.height}mm;margin:0} html,body{margin:0;padding:0;width:${m.width}mm;height:${m.height}mm;overflow:hidden;background:#fff}.label{position:relative;width:${m.width}mm;height:${m.height}mm;background:#fff;overflow:hidden}.i{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;white-space:nowrap;line-height:1.05;color:#000}.b svg{display:block;width:100%;height:100%;overflow:visible}
+      </style></head><body><div class="label">${items}</div><script>window.onload=()=>setTimeout(()=>window.print(),100);<\/script></body></html>`;
   }
   function printLabel(){
     const m=getModel(),lm=layoutModel(m);
@@ -385,10 +384,6 @@ input[type="checkbox"]:checked~span{display:block}
     try {localStorage.setItem(BARCODE_WIDTH_KEY,JSON.stringify(savedBarcodeWidths));document.getElementById("barcodeWidthSaveStatus").textContent="Saved | تم الحفظ";}
     catch(_){document.getElementById("barcodeWidthSaveStatus").textContent="Could not save; this width works for this session only.";}
     render();
-  });
-  document.getElementById("barcodeWidthTest").addEventListener("click", () => {
-    if(!makeEan13Svg(els.barcode.value.trim())){alert("Enter a valid EAN-13 barcode first. | أدخل باركود EAN-13 صحيحاً أولاً");return;}
-    printLabel();
   });
   render();
   window.__BARCODE_SIMPLE_READY__=true;
