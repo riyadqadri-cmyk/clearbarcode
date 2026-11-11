@@ -116,17 +116,16 @@
   .barcode-combined .barcode-number-caption {flex:0 0 auto}
   @media(max-width:760px){.static-mode .workspace{grid-template-columns:1fr}}
 </style>
-<style id="standalone-settings-css">.standalone-settings[hidden]{display:none!important}.standalone-settings{position:fixed;inset:0;z-index:9000;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:16px}.standalone-settings-card{width:min(380px,100%);background:#fff;color:#0f172a;border-radius:6px;box-shadow:0 20px 50px #0003}.standalone-settings-head{padding:14px 18px;border-bottom:1px solid #dbe3ec;display:flex;justify-content:space-between;align-items:center}.standalone-settings-head button{border:0;background:none;font-size:24px;cursor:pointer}.standalone-settings-body{padding:18px;display:grid;gap:8px}.standalone-settings-body label{font-weight:600;font-size:13px}</style>
+
 </head>
 <body>
-<div id="standaloneSettings" class="standalone-settings" hidden role="dialog" aria-modal="true" aria-labelledby="standaloneSettingsTitle"><div class="standalone-settings-card"><div class="standalone-settings-head"><strong id="standaloneSettingsTitle" data-i18n="settings">Settings</strong><button type="button" id="standaloneSettingsClose" aria-label="Close">×</button></div><div class="standalone-settings-body"><label for="languageSelect" data-i18n="language">Language</label><select id="languageSelect" class="control" aria-label="Language"><option value="en">English</option><option value="ar">العربية</option></select><label for="printerDpi" data-i18n="printerResolution">Printer resolution</label><select id="printerDpi" class="control"><option value="203">203 DPI (thermal · default)</option><option value="300">300 DPI</option><option value="600">600 DPI</option></select></div></div></div>
 <div class="app-shell">
   <header class="topbar">
     <div class="title-wrap">
       <h1>Barcode Label Designer</h1>
       <p id="itemSummary">Standalone label designer</p>
     </div>
-    <div class="top-actions"><button class="btn btn-dark" type="button" id="standaloneSettingsOpen" data-i18n="settings">Settings</button>
+    <div class="top-actions">
       <button class="btn btn-dark" type="button" id="modeButton">Static Mode</button><button class="btn btn-dark" type="button" id="resetButton">Reset Layout</button>
       <button class="btn btn-success" type="button" id="saveButton">Save Layout</button>
       <button class="btn btn-primary" type="button" id="printButton">Print</button>
@@ -194,6 +193,7 @@
             <input type="file" id="imageFile" accept="image/*" hidden><button type="button" class="tool-btn" id="uploadImageButton" data-i18n="uploadImage" hidden>Upload image</button><div class="muted" id="elementTextHelp" style="margin-top:6px" hidden></div>
             <div id="barcodeHealth" class="barcode-health" aria-live="polite"></div>
           </div>
+          <div class="field" id="barcodeDpiField" hidden><label for="barcodeElementDpi" data-i18n="printerResolution">Printer resolution</label><select class="control" id="barcodeElementDpi"><option value="203">203 DPI (thermal · default)</option><option value="300">300 DPI</option><option value="600">600 DPI</option></select></div>
           <div class="field" id="showNumberField" hidden><label style="display:flex;align-items:center;gap:8px"><input id="showBarcodeNumber" type="checkbox"> <span data-i18n="showBarcodeNumber">Show barcode number</span></label></div>
           <div class="field"><label for="layerName" data-i18n="layerName">Layer name</label><input class="control" id="layerName" type="text"></div>
           <div class="row-2">
@@ -306,12 +306,7 @@
     const languageControl = document.getElementById("languageSelect");
     if (languageControl) languageControl.value = lang;
   }
-  document.getElementById("languageSelect").addEventListener("change", e => {lang=e.target.value;localStorage.setItem("barcodepro.language",lang);translateUI(); if(layout) render();});
-  const standaloneSettings = document.getElementById("standaloneSettings");
-  document.getElementById("standaloneSettingsOpen").addEventListener("click",()=>{standaloneSettings.hidden=false;});
-  document.getElementById("standaloneSettingsClose").addEventListener("click",()=>{standaloneSettings.hidden=true;});
-  standaloneSettings.addEventListener("click",e=>{if(e.target===standaloneSettings) standaloneSettings.hidden=true;});
-  document.addEventListener("keydown",e=>{if(e.key==="Escape") standaloneSettings.hidden=true;});
+  // Language is controlled by the host shell; retain its existing stored preference.
 
   translateUI();
   const STORAGE_KEY = "barcodepro.label.layout.v1";
@@ -544,52 +539,56 @@
   }
 
   const DPI_KEY = "barcodepro.printerDpi";
-  let printerDpi = [203,300,600].includes(Number(localStorage.getItem(DPI_KEY))) ? Number(localStorage.getItem(DPI_KEY)) : 203;
-  document.getElementById("printerDpi").value = String(printerDpi);
-  document.getElementById("printerDpi").addEventListener("change", e => {
-    printerDpi = Number(e.target.value);
-    localStorage.setItem(DPI_KEY, String(printerDpi));
+  const defaultPrinterDpi = [203,300,600].includes(Number(localStorage.getItem(DPI_KEY))) ? Number(localStorage.getItem(DPI_KEY)) : 203;
+  const elementDpi = el => [203,300,600].includes(Number(el?.printerDpi)) ? Number(el.printerDpi) : defaultPrinterDpi;
+  const dotMm = dpi => 25.4 / dpi;
+  document.getElementById("barcodeElementDpi").addEventListener("change", e => {
+    if (staticMode) return;
+    const el = selectedElement();
+    if (!el || el.type !== "barcode-image") return;
+    el.printerDpi = Number(e.target.value);
+    el.w = snappedBarcodeWidthPx(el, el.w);
+    persistLayout(false);
     render();
   });
-  const dotMm = () => 25.4 / printerDpi;
   // EAN-13 GS1 nominal X dimension 0.330 mm; supported range 0.264–0.660 mm.
   // Always use whole printer dots for consistent rasterization.
-  function barcodeDotOptions(info) {
-    const minX = info.symbology === "EAN-13" ? (printerDpi === 203 ? 0.249 : 0.264) : 0.25;
+  function barcodeDotOptions(info, dpi = defaultPrinterDpi) {
+    const minX = info.symbology === "EAN-13" ? (dpi === 203 ? 0.249 : 0.264) : 0.25;
     const maxX = info.symbology === "EAN-13" ? 0.660 : 0.70;
     const options = [];
     for (let dots = 1; dots <= 24; dots++) {
-      const x = dots * dotMm();
+      const x = dots * dotMm(dpi);
       if (x >= minX - 1e-9 && x <= maxX + 1e-9) options.push(dots);
     }
     return options;
   }
-  function closestBarcodeDots(info, requestedWidthMm) {
-    const options = barcodeDotOptions(info);
+  function closestBarcodeDots(info, requestedWidthMm, dpi = defaultPrinterDpi) {
+    const options = barcodeDotOptions(info, dpi);
     if (!options.length) return 1;
-    return options.reduce((best, dots) => Math.abs(dots * dotMm() * info.totalModules - requestedWidthMm) < Math.abs(best * dotMm() * info.totalModules - requestedWidthMm) ? dots : best, options[0]);
+    return options.reduce((best, dots) => Math.abs(dots * dotMm(dpi) * info.totalModules - requestedWidthMm) < Math.abs(best * dotMm(dpi) * info.totalModules - requestedWidthMm) ? dots : best, options[0]);
   }
   function snappedBarcodeWidthPx(el, requestedPx) {
-    const info = barcodeInfo(elementText(el));
-    return closestBarcodeDots(info, requestedPx / PX_PER_MM) * dotMm() * info.totalModules * PX_PER_MM;
+    const info = barcodeInfo(elementText(el), elementDpi(el));
+    return closestBarcodeDots(info, requestedPx / PX_PER_MM) * dotMm(elementDpi(el)) * info.totalModules * PX_PER_MM;
   }
 
-  function barcodeInfo(rawValue) {
+  function barcodeInfo(rawValue, dpi = defaultPrinterDpi) {
     const raw = String(rawValue ?? "").trim();
     const ean = makeEan13Svg(raw);
     if (ean) {
-      const xMm = dotMm() * closestBarcodeDots({symbology:"EAN-13",totalModules:ean.totalModules}, 0.330 * ean.totalModules);
+      const xMm = dotMm(dpi) * closestBarcodeDots({symbology:"EAN-13",totalModules:ean.totalModules}, 0.330 * ean.totalModules, dpi);
       return {
         symbology: "EAN-13", encodedValue: raw,
         totalModules: ean.totalModules, barModules: 95, quietModules: 18,
         fixedXmm: xMm, minHeightMm: 9.5, recommendedHeightMm: 10.5,
         svg: ean.svg,
-        note: `EAN-13 · whole-dot sizing at ${printerDpi} DPI`
+        note: `EAN-13 · whole-dot sizing at ${dpi} DPI`
       };
     }
     const code = code128Structure(raw);
     const maxTotalMm = Math.max(20, (layout?.widthMm || 38) - 1.0);
-    const xMm = dotMm() * closestBarcodeDots({symbology:"Code 128",totalModules:code.totalModules}, maxTotalMm);
+    const xMm = dotMm(dpi) * closestBarcodeDots({symbology:"Code 128",totalModules:code.totalModules}, maxTotalMm, dpi);
     const invalidEan = /^\d{13}$/.test(raw)
       ? "13 digits entered, but the EAN-13 check digit is invalid; the exact value is encoded as Code 128."
       : "Exact value encoded as Code 128.";
@@ -599,7 +598,7 @@
       quietModules: code.quietModules * 2, fixedXmm: xMm,
       minHeightMm: 9.5, recommendedHeightMm: 9.7,
       svg: makeCode128Svg(raw),
-      note: `${invalidEan} ${printerDpi} DPI, whole-dot module sizing.`
+      note: `${invalidEan} ${dpi} DPI, whole-dot module sizing.`
     };
   }
 
@@ -653,33 +652,33 @@
   }
 
   function barcodeSizing(el) {
-    const info = barcodeInfo(elementText(el));
+    const info = barcodeInfo(elementText(el), elementDpi(el));
     const widthMm = Math.max(0, Number(el.w) || 0) / PX_PER_MM;
     const heightMm = Math.max(0, Number(el.h) || 0) / PX_PER_MM - (el.showNumber ? 11 / PX_PER_MM : 0);
     const xMm = widthMm / Math.max(1, info.totalModules);
-    const dots = Math.round(xMm / dotMm());
-    const options = barcodeDotOptions(info);
-    const wholeDots = Math.abs(xMm - dots * dotMm()) < 0.015;
+    const dots = Math.round(xMm / dotMm(elementDpi(el)));
+    const options = barcodeDotOptions(info, elementDpi(el));
+    const wholeDots = Math.abs(xMm - dots * dotMm(elementDpi(el))) < 0.015;
     const safeWidth = options.includes(dots) && wholeDots;
     const safeHeight = heightMm >= info.minHeightMm;
-    const minWidthMm = options[0] * dotMm() * info.totalModules;
+    const minWidthMm = options[0] * dotMm(elementDpi(el)) * info.totalModules;
     const compactEan = info.symbology === "EAN-13" && xMm < 0.264;
     return { ...info, widthMm, heightMm, xMm, dots, minWidthMm,
       targetWidthMm: minWidthMm, compactEan, safeWidth, safeHeight, safe: safeWidth && safeHeight };
   }
   function safeBarcodeWidthPx(el) {
-    const info = barcodeInfo(elementText(el));
-    return barcodeDotOptions(info)[0] * dotMm() * info.totalModules * PX_PER_MM;
+    const info = barcodeInfo(elementText(el), elementDpi(el));
+    return barcodeDotOptions(info, elementDpi(el))[0] * dotMm(elementDpi(el)) * info.totalModules * PX_PER_MM;
   }
   function autoSizeBarcode(el) {
     if (!el || el.type !== "barcode-image") return;
-    const info = barcodeInfo(elementText(el));
+    const info = barcodeInfo(elementText(el), elementDpi(el));
     const canvasWidth = Math.max(1, layout.widthMm * PX_PER_MM);
     const canvasHeight = Math.max(1, layout.heightMm * PX_PER_MM);
     const usableWidth = Math.max(1, canvasWidth - 4);
-    const available = barcodeDotOptions(info).filter(d => d * dotMm() * info.totalModules * PX_PER_MM <= usableWidth);
-    const dots = available.length ? available.reduce((best,d) => Math.abs(d * dotMm() - 0.330) < Math.abs(best * dotMm() - 0.330) ? d : best,available[0]) : barcodeDotOptions(info)[0];
-    el.w = dots * dotMm() * info.totalModules * PX_PER_MM;
+    const available = barcodeDotOptions(info, elementDpi(el)).filter(d => d * dotMm(elementDpi(el)) * info.totalModules * PX_PER_MM <= usableWidth);
+    const dots = available.length ? available.reduce((best,d) => Math.abs(d * dotMm(elementDpi(el)) - 0.330) < Math.abs(best * dotMm(elementDpi(el)) - 0.330) ? d : best,available[0]) : barcodeDotOptions(info, elementDpi(el))[0];
+    el.w = dots * dotMm(elementDpi(el)) * info.totalModules * PX_PER_MM;
     el.h = Math.max(info.recommendedHeightMm * PX_PER_MM + (el.showNumber ? 11 : 0), 18);
     el.x = Math.max(0, (canvasWidth - el.w) / 2);
     el.y = clamp(Number(el.y) || 0, 0, Math.max(0, canvasHeight - el.h));
@@ -744,7 +743,7 @@
   }
 
   function barcodeMarkup(el) {
-    const svg = barcodeInfo(elementText(el)).svg;
+    const svg = barcodeInfo(elementText(el), elementDpi(el)).svg;
     if (!el.showNumber) return svg;
     return `<div class="barcode-combined">${svg}<div class="barcode-number-caption">${escapeSvgText(elementText(el))}</div></div>`;
   }
@@ -863,6 +862,8 @@
     noSelection.hidden = !!el;
     properties.hidden = !el;
     document.getElementById("showNumberField").hidden = !el || el.type !== "barcode-image";
+    document.getElementById("barcodeDpiField").hidden = !el || el.type !== "barcode-image";
+    if (el && el.type === "barcode-image") document.getElementById("barcodeElementDpi").value = String(elementDpi(el));
     if (!el) return;
     document.getElementById("showBarcodeNumber").checked = !!el.showNumber;
     const isText = !["barcode-image", "qr-image", "image"].includes(el.type);
@@ -886,7 +887,7 @@
       } else {
         barcodeHealth.classList.add(b.safeWidth ? "warn" : "bad");
         const problems = [];
-        if (!b.safeWidth) problems.push(`choose a whole-dot module width at ${printerDpi} DPI (minimum ≈ ${b.minWidthMm.toFixed(1)} mm)`);
+        if (!b.safeWidth) problems.push(`choose a whole-dot module width at ${elementDpi(el)} DPI (minimum ≈ ${b.minWidthMm.toFixed(1)} mm)`);
         if (!b.safeHeight) problems.push(`too short; use at least ${b.minHeightMm.toFixed(0)} mm height`);
         barcodeHealth.textContent = `⚠ ${b.symbology} · ${widthText}. ${problems.join("; ")}. ${b.note}`;
       }
@@ -933,6 +934,7 @@
       textAlign: "center"
     };
     if (type === "barcode-image") el.showNumber = false;
+    if (type === "barcode-image") el.printerDpi = defaultPrinterDpi;
     if (type === "custom-text") el.value = "Text";
     if (type === "image") el.value = "";
     layout.elements.push(el);
@@ -1257,7 +1259,7 @@
         if (x.el.type === "qr-image") {
           return `QR ${i + 1}: ${b.symbology}, ${b.sideMm.toFixed(1)} × ${b.sideMm.toFixed(1)} mm; module ${b.moduleMm.toFixed(2)} mm (min ${b.minModuleMm} mm); needs ${b.minSideMm.toFixed(1)} mm side.`;
         }
-        return `Barcode ${i + 1}: ${b.symbology}, ${b.widthMm.toFixed(1)} × ${b.heightMm.toFixed(1)} mm; minimum valid width ${b.minWidthMm.toFixed(1)} mm, whole-dot modules at ${printerDpi} DPI, and minimum height ${b.minHeightMm.toFixed(1)} mm.`;
+        return `Barcode ${i + 1}: ${b.symbology}, ${b.widthMm.toFixed(1)} × ${b.heightMm.toFixed(1)} mm; minimum valid width ${b.minWidthMm.toFixed(1)} mm, whole-dot modules at ${elementDpi(x.el)} DPI, and minimum height ${b.minHeightMm.toFixed(1)} mm.`;
       }).join("\n");
       alert(`Printing blocked to protect scan reliability.\n\n${detail}\n\nThe program will automatically re-size the code. If this message remains, reset the layout.`);
       return;
