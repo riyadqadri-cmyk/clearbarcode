@@ -81,7 +81,7 @@ The major objective of this project is reliability, especially for older or non-
 
 ## How to use
 
-1. Open either BarcodeSIMPLE.html or BarcodePRO.html in a modern browser.
+1. Open either BarcodeSIMPLE.html or BarcodePRO.html in a modern browser*.
 2. Enter the item name, barcode, and price as needed.
 3. Adjust the label width and height if necessary.
 4. Check the preview before printing.
@@ -101,9 +101,7 @@ The major objective of this project is reliability, especially for older or non-
 - It works entirely in the browser, with no server required
 - It is optimized for practical reliability rather than advanced enterprise features
 - BarcodePRO includes a hot-swappable update mechanism that can refresh the app from app.html in the root while preserving the shell UI
-
-This was made with the help of ChatGPT.
-
+- *: Firefox might have some problems when printing the finished barcode, like flipping the print 90 degrees.
 ---
 
 License: This project is licensed under the [MIT License](LICENSE). See the [LICENSE](LICENSE) file for full terms and conditions.
