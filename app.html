@@ -52,7 +52,7 @@
   .designer-element.selected { border-color: var(--primary); background: rgba(37,99,235,.06); }
   .designer-element .element-content { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .designer-element svg { width: 100%; height: 100%; display: block; overflow: visible; }
-  .resize-handle { position: absolute; right: 2px; bottom: 2px; width: 18px; height: 18px; background: var(--primary); border-radius: 3px 0 0 0; cursor: nwse-resize; display: none; z-index: 5; box-shadow: 0 0 0 2px #fff; }
+  .resize-handle { position: absolute; right: 0; bottom: 0; width: 8px; height: 8px; background: var(--primary); border-radius: 3px 0 0 0; cursor: nwse-resize; display: none; z-index: 5; box-shadow: 0 0 0 2px #fff; }
   .designer-element.selected .resize-handle { display: block; }
   .muted { color: var(--muted); font-size: .82rem; line-height: 1.45; }
   .status { margin-top: 10px; font-size: .9rem; color: var(--muted); min-height: 18px; }
@@ -195,6 +195,7 @@
           </div>
           <div class="field" id="barcodeDpiField" hidden><label for="barcodeElementDpi" data-i18n="printerResolution">Printer resolution</label><select class="control" id="barcodeElementDpi"><option value="203">203 DPI (thermal · default)</option><option value="300">300 DPI</option><option value="600">600 DPI</option></select></div>
           <div class="field" id="showNumberField" hidden><label style="display:flex;align-items:center;gap:8px"><input id="showBarcodeNumber" type="checkbox"> <span data-i18n="showBarcodeNumber">Show barcode number</span></label></div>
+          <div class="field" id="staticVisibilityField"><label style="display:flex;align-items:center;gap:8px"><input id="hideFromStatic" type="checkbox"> <span data-i18n="hideFromStatic">Fixed element — hide from Static Mode fields</span></label><div class="muted" data-i18n="fixedHelp">Still visible on the label and in print; protected from Clear Fields.</div></div>
           <div class="field"><label for="layerName" data-i18n="layerName">Layer name</label><input class="control" id="layerName" type="text"></div>
           <div class="row-2">
             <div class="field"><label for="fontSize">Font size</label><input class="control" id="fontSize" type="number" min="6" max="200" value="14"></div>
@@ -284,8 +285,8 @@
     injectQrLib(localStorage.getItem(QR_LIB_KEY)).catch(() => {});
   }
   const I18N = {
-    en: {setup:"Label setup",selected:"Selected element",layers:"Layers · top first",add:"Add elements",choose:"Select a layer",content:"Content / value",layerName:"Layer name",language:"Language",settings:"Settings",barcodeQr:"Barcode / QR",text:"Text",image:"Image",imageUrl:"Image URL or data URL",uploadImage:"Upload image",barcodeChoice:"Choose: 1 = Barcode, 2 = QR",qrUnavailable:"QR library unavailable.",namePrompt:"Name this layer:",untitled:"Untitled",front:"Bring forward",back:"Send backward",delete:"Delete",saved:"Layout saved in this browser.",clearFields:"Clear Fields",showBarcodeNumber:"Show barcode number",staticMode:"Static Mode",editMode:"Edit Mode",fields:"Elements / Fields",printerResolution:"Printer resolution","Barcode Label Designer":"Barcode Label Designer","Standalone label designer":"Standalone label designer","Reset Layout":"Reset Layout","Save Layout":"Save Layout","Print":"Print","Width (mm)":"Width (mm)","Height (mm)":"Height (mm)","Copies":"Copies","Grid":"Grid","Show":"Show","Hide":"Hide","Font size":"Font size","Weight":"Weight","Normal":"Normal","Semi-bold":"Semi-bold","Bold":"Bold","Extra bold":"Extra bold","Alignment":"Alignment","Left":"Left","Center":"Center","Right":"Right","X":"X","Y":"Y","Width":"Width","Height":"Height","Delete element":"Delete element","Price":"Price","Barcode":"Barcode","Barcode value":"Barcode value","QR content":"QR content"},
-    ar: {setup:"إعدادات الملصق",selected:"العنصر المحدد",layers:"الطبقات · الأعلى أولاً",add:"إضافة عناصر",choose:"اختر طبقة",content:"المحتوى / القيمة",layerName:"اسم الطبقة",language:"اللغة",settings:"الإعدادات",barcodeQr:"باركود / QR",text:"نص",image:"صورة",imageUrl:"رابط الصورة",uploadImage:"رفع صورة",barcodeChoice:"اختر: 1 = باركود، 2 = QR",qrUnavailable:"مكتبة QR غير متاحة.",namePrompt:"أدخل اسم الطبقة:",untitled:"بدون اسم",front:"إلى الأمام",back:"إلى الخلف",delete:"حذف",saved:"تم حفظ التصميم في المتصفح.",clearFields:"مسح الحقول",showBarcodeNumber:"إظهار رقم الباركود",staticMode:"الوضع الثابت",editMode:"وضع التحرير",fields:"العناصر / الحقول",printerResolution:"دقة الطابعة","Barcode Label Designer":"مصمم ملصقات الباركود","Standalone label designer":"مصمم ملصقات مستقل","Reset Layout":"إعادة ضبط التصميم","Save Layout":"حفظ التصميم","Print":"طباعة","Width (mm)":"العرض (مم)","Height (mm)":"الارتفاع (مم)","Copies":"النسخ","Grid":"الشبكة","Show":"إظهار","Hide":"إخفاء","Font size":"حجم الخط","Weight":"سماكة الخط","Normal":"عادي","Semi-bold":"شبه عريض","Bold":"عريض","Extra bold":"عريض جداً","Alignment":"المحاذاة","Left":"يسار","Center":"وسط","Right":"يمين","X":"س","Y":"ص","Width":"العرض","Height":"الارتفاع","Delete element":"حذف العنصر","Price":"السعر","Barcode":"الباركود","Barcode value":"قيمة الباركود","QR content":"محتوى QR"}
+    en: {setup:"Label setup",selected:"Selected element",layers:"Layers · top first",add:"Add elements",choose:"Select a layer",content:"Content / value",layerName:"Layer name",language:"Language",settings:"Settings",barcodeQr:"Barcode / QR",text:"Text",image:"Image",imageUrl:"Image URL or data URL",uploadImage:"Upload image",barcodeChoice:"Choose: 1 = Barcode, 2 = QR",qrUnavailable:"QR library unavailable.",namePrompt:"Name this layer:",untitled:"Untitled",front:"Bring forward",back:"Send backward",delete:"Delete",saved:"Layout saved in this browser.",clearFields:"Clear Fields",showBarcodeNumber:"Show barcode number",staticMode:"Static Mode",editMode:"Edit Mode",fields:"Elements / Fields",printerResolution:"Printer resolution","Barcode Label Designer":"Barcode Label Designer","Standalone label designer":"Standalone label designer","Reset Layout":"Reset Layout","Save Layout":"Save Layout","Print":"Print","Width (mm)":"Width (mm)","Height (mm)":"Height (mm)","Copies":"Copies","Grid":"Grid","Show":"Show","Hide":"Hide","Font size":"Font size","Weight":"Weight","Normal":"Normal","Semi-bold":"Semi-bold","Bold":"Bold","Extra bold":"Extra bold","Alignment":"Alignment","Left":"Left","Center":"Center","Right":"Right","X":"X","Y":"Y","Width":"Width","Height":"Height","Delete element":"Delete element","Price":"Price","Barcode":"Barcode","Barcode value":"Barcode value","QR content":"QR content",hideFromStatic:"Fixed element — hide from Static Mode fields",fixedHelp:"Still visible on the label and in print; protected from Clear Fields."},
+    ar: {setup:"إعدادات الملصق",selected:"العنصر المحدد",layers:"الطبقات · الأعلى أولاً",add:"إضافة عناصر",choose:"اختر طبقة",content:"المحتوى / القيمة",layerName:"اسم الطبقة",language:"اللغة",settings:"الإعدادات",barcodeQr:"باركود / QR",text:"نص",image:"صورة",imageUrl:"رابط الصورة",uploadImage:"رفع صورة",barcodeChoice:"اختر: 1 = باركود، 2 = QR",qrUnavailable:"مكتبة QR غير متاحة.",namePrompt:"أدخل اسم الطبقة:",untitled:"بدون اسم",front:"إلى الأمام",back:"إلى الخلف",delete:"حذف",saved:"تم حفظ التصميم في المتصفح.",clearFields:"مسح الحقول",showBarcodeNumber:"إظهار رقم الباركود",staticMode:"الوضع الثابت",editMode:"وضع التحرير",fields:"العناصر / الحقول",printerResolution:"دقة الطابعة","Barcode Label Designer":"مصمم ملصقات الباركود","Standalone label designer":"مصمم ملصقات مستقل","Reset Layout":"إعادة ضبط التصميم","Save Layout":"حفظ التصميم","Print":"طباعة","Width (mm)":"العرض (مم)","Height (mm)":"الارتفاع (مم)","Copies":"النسخ","Grid":"الشبكة","Show":"إظهار","Hide":"إخفاء","Font size":"حجم الخط","Weight":"سماكة الخط","Normal":"عادي","Semi-bold":"شبه عريض","Bold":"عريض","Extra bold":"عريض جداً","Alignment":"المحاذاة","Left":"يسار","Center":"وسط","Right":"يمين","X":"س","Y":"ص","Width":"العرض","Height":"الارتفاع","Delete element":"حذف العنصر","Price":"السعر","Barcode":"الباركود","Barcode value":"قيمة الباركود","QR content":"محتوى QR",hideFromStatic:"عنصر ثابت — إخفاء من حقول الوضع الثابت",fixedHelp:"يبقى ظاهراً على الملصق وفي الطباعة ومحمي من مسح الحقول."}
   };
   let lang = localStorage.getItem("barcodepro.language") === "ar" ? "ar" : "en";
   const MODE_KEY = "barcodepro.designer.mode.v1";
@@ -748,6 +749,39 @@
     return `<div class="barcode-combined">${svg}<div class="barcode-number-caption">${escapeSvgText(elementText(el))}</div></div>`;
   }
 
+  function fittedFontSize(el) {
+    const desired = Number(el.fontSize) || 14;
+    if (["barcode-image", "qr-image", "image"].includes(el.type)) return desired;
+    const value = elementText(el);
+    if (!value) return desired;
+    const width = Math.max(1, el.w - 6), height = Math.max(1, el.h - 6);
+    const measure = document.createElement("canvas").getContext("2d");
+    const weight = el.fontWeight || "700";
+    // Estimate line wrapping at each candidate size, including long unbroken words.
+    const fits = size => {
+      measure.font = `${weight} ${size}px Arial, sans-serif`;
+      const words = value.split(/(\s+)/);
+      let lines = 1, line = "";
+      for (const word of words) {
+        const candidate = line + word;
+        if (measure.measureText(candidate).width <= width) { line = candidate; continue; }
+        if (line.trim()) { lines++; line = word.trimStart(); } else line = word;
+        if (measure.measureText(line).width > width) {
+          const extra = Math.ceil(measure.measureText(line).width / width);
+          lines += extra - 1;
+          line = "";
+        }
+      }
+      return lines * size * 1.05 <= height;
+    };
+    let low = 1, high = desired;
+    for (let i = 0; i < 12; i++) {
+      const mid = (low + high) / 2;
+      if (fits(mid)) low = mid; else high = mid;
+    }
+    return Math.min(desired, Math.max(1, low));
+  }
+
   function createContent(el) {
     const content = document.createElement("div");
     content.className = "element-content";
@@ -759,7 +793,7 @@
       content.innerHTML = qrInfo(elementText(el)).svg;
     } else {
       content.textContent = elementText(el);
-      content.style.fontSize = (el.fontSize || 14) + "px";
+      content.style.fontSize = fittedFontSize(el) + "px";
       content.style.fontWeight = el.fontWeight || "700";
       content.style.textAlign = el.textAlign || "center";
       content.style.justifyContent = el.textAlign === "left" ? "flex-start" : el.textAlign === "right" ? "flex-end" : "center";
@@ -797,6 +831,7 @@
     elementList.innerHTML = "";
     [...layout.elements].reverse().forEach(el => {
       if (staticMode) {
+        if (el.hideFromStatic) return;
         const row = document.createElement("div"); row.className = "element-row";
         const name = document.createElement("label"); name.className = "element-row-name";
         name.textContent = el.layerName || typeLabel(el.type);
@@ -849,7 +884,7 @@
 
   document.getElementById("clearFieldsButton").addEventListener("click", () => {
     if (!staticMode) return;
-    layout.elements.forEach(el => { el.value = ""; updateCanvasContent(el); });
+    layout.elements.forEach(el => { if (el.hideFromStatic) return; el.value = ""; updateCanvasContent(el); });
     persistLayout(false);
     renderElementList();
   });
@@ -868,6 +903,7 @@
     document.getElementById("showBarcodeNumber").checked = !!el.showNumber;
     const isText = !["barcode-image", "qr-image", "image"].includes(el.type);
     document.getElementById("layerName").value = el.layerName || typeLabel(el.type);
+    document.getElementById("hideFromStatic").checked = !!el.hideFromStatic;
     const isQr = el.type === "qr-image";
     controls.text.disabled = false;
     controls.text.value = elementText(el);
@@ -968,7 +1004,7 @@
       originalX: el.x, originalY: el.y, originalW: el.w, originalH: el.h,
       originalFontSize: Number(el.fontSize) || 14
     };
-    node.setPointerCapture(event.pointerId);
+    canvas.setPointerCapture(event.pointerId);
     render();
   });
 
@@ -1003,11 +1039,12 @@
       }
       const scaleX = newW / Math.max(1, activePointer.originalW);
       const scaleY = newH / Math.max(1, activePointer.originalH);
+      // Grow text when either dimension is enlarged, then fit it inside the box.
       const contentScale = Math.min(scaleX, scaleY);
       el.w = newW;
       el.h = newH;
       if (el.type !== "barcode-image" && el.type !== "qr-image") {
-        el.fontSize = clamp(activePointer.originalFontSize * contentScale, 6, 200);
+        if (el.type !== "image") el.fontSize = clamp(activePointer.originalFontSize * contentScale, 1, 200);
       }
     }
     const node = canvas.querySelector(`[data-id="${el.id}"]`);
@@ -1020,7 +1057,7 @@
       if (content) {
         if (el.type === "barcode-image") content.innerHTML = barcodeMarkup(el);
         else if (el.type === "qr-image") content.innerHTML = qrInfo(elementText(el)).svg; /* ── QR ── */
-        else content.style.fontSize = (el.fontSize || 14) + "px";
+        else if (el.type !== "image") content.style.fontSize = fittedFontSize(el) + "px";
       }
     }
     updateProperties();
@@ -1095,6 +1132,13 @@
     persistLayout(false); render();
   });
 
+  document.getElementById("hideFromStatic").addEventListener("change", e => {
+    const el = selectedElement();
+    if (!el || staticMode) return;
+    el.hideFromStatic = e.target.checked;
+    persistLayout(false);
+    render();
+  });
   document.getElementById("showBarcodeNumber").addEventListener("change", e => {
     if (staticMode) return;
     const el = selectedElement();
@@ -1200,7 +1244,7 @@
       const justify = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
       contentHtml = `
         <div class="print-content print-text"
-             style="font-size:${Number(el.fontSize) || 14}px;
+             style="font-size:${fittedFontSize(el)}px;
                     font-weight:${escapePrintHtml(el.fontWeight || "700")};
                     text-align:${escapePrintHtml(align)};
                     justify-content:${justify};">
@@ -1230,12 +1274,13 @@
   @page { size: ${layout.widthMm}mm ${layout.heightMm}mm; margin: 0; }
   html, body { margin: 0; padding: 0; background: #fff; }
   body { width: ${layout.widthMm}mm; }
-  .print-label { position: relative; width: ${layout.widthMm}mm; height: ${layout.heightMm}mm; margin: 0; padding: 0; overflow: hidden; background: #fff; break-after: page; page-break-after: always; }
+  .print-label { box-sizing: border-box; position: relative; width: ${layout.widthMm}mm; height: ${layout.heightMm}mm; margin: 0; padding: 0; overflow: hidden; background: #fff; break-after: page; page-break-after: always; }
   .print-label:last-child { break-after: auto; page-break-after: auto; }
-  .print-element { position: absolute; display: flex; margin: 0; padding: 0; overflow: visible; }
-  .print-content { width: 100%; height: 100%; display: flex; align-items: center; overflow: visible; margin: 0; padding: 0; }
-  .print-text { line-height: 1.05; white-space: normal; overflow: visible; overflow-wrap: anywhere; }
-  .print-barcode svg { display: block; width: 100% !important; height: 100% !important; overflow: visible; }
+  @media print { .print-label { break-inside: avoid; page-break-inside: avoid; } }
+  .print-element { position: absolute; display: flex; margin: 0; padding: 2px; overflow: hidden; min-width: 0; min-height: 0; }
+  .print-content { width: 100%; height: 100%; display: flex; align-items: center; overflow: hidden; margin: 0; padding: 0; min-width: 0; min-height: 0; }
+  .print-text { line-height: 1.05; white-space: normal; overflow: hidden; overflow-wrap: anywhere; font-family: Inter, "Segoe UI", Arial, sans-serif; }
+  .print-barcode svg { display: block; width: 100% !important; height: 100% !important; overflow: hidden; }
   .barcode-combined { display:flex; flex-direction:column; width:100%;height:100%;overflow:hidden; }
   .barcode-combined svg { flex:1 1 0; min-height:0; height:0!important; }
   .barcode-number-caption {flex:0 0 auto;text-align:center;font:10px/1.1 Arial,sans-serif;white-space:nowrap;overflow:hidden;}
@@ -1281,16 +1326,20 @@
     printDocument.open();
     printDocument.write(buildPrintDocument(copies));
     printDocument.close();
-    const cleanup = () => { window.setTimeout(() => iframe.remove(), 500); };
-    iframe.onload = () => {
-      window.setTimeout(() => {
-        try { printWindow.focus(); printWindow.print(); } finally { cleanup(); }
-      }, 150);
+    // Only invoke the print dialog once: iframe.onload and fallback timer used
+    // to race, causing duplicate jobs/pages on some browsers.
+    let printStarted = false;
+    const startPrint = () => {
+      if (printStarted || !iframe.isConnected) return;
+      printStarted = true;
+      printWindow.focus();
+      printWindow.print();
     };
-    window.setTimeout(() => {
-      if (!document.body.contains(iframe)) return;
-      try { printWindow.focus(); printWindow.print(); } finally { cleanup(); }
-    }, 500);
+    printWindow.addEventListener("afterprint", () => {
+      window.setTimeout(() => iframe.remove(), 500);
+    }, { once: true });
+    iframe.onload = () => window.setTimeout(startPrint, 200);
+    window.setTimeout(startPrint, 700);
   }
 
   document.getElementById("printButton").addEventListener("click", printLabels);
